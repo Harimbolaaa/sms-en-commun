@@ -1,0 +1,6 @@
+{
+  "name": "AutoBridge Edu",
+  "description": "Educational task automation skeleton demonstrating BroadcastReceiver SMS detection, Foreground Service persistence (API 23-34), OkHttp JSON transmission, and battery optimization management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

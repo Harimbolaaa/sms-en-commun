@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">AutoBridge Edu</string>
+    <string name="title_dashboard">Task Automation Bridge</string>
+    <string name="subtitle_dashboard">Architecture éducative Android (API 23 à 34)</string>
+    <string name="label_target_url">URL Endpoint Cible</string>
+    <string name="hint_target_url">https://httpbin.org/post ou webhook</string>
+    <string name="btn_save_url">Enregistrer Endpoint</string>
+    <string name="btn_test_ping">Tester Transmission OkHttp</string>
+    <string name="btn_grant_permissions">Solliciter Permissions SMS</string>
+    <string name="btn_battery_optimization">Désactiver Optimisation Batterie</string>
+    <string name="btn_start_service">Démarrer Foreground Service</string>
+    <string name="btn_stop_service">Arrêter Foreground Service</string>
+    <string name="notification_channel_name">Canal de Surveillance AutoBridge</string>
+    <string name="notification_channel_desc">Maintient le service d\'automatisation actif en arrière-plan</string>
+    <string name="notification_title">AutoBridge Actif</string>
+    <string name="notification_content">Écoute en tâche de fond des événements SMS et dispatch réseau</string>
+</resources>

@@ -1,0 +1,3551 @@
+package com.example
+
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.LastPage
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Architecture
+import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.FirstPage
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.OpenInFull
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Queue
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Sensors
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.TableChart
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Web
+import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import com.example.ui.PrettyJsonViewer
+import com.example.ui.isJsonFormat
+import com.example.ui.formatJsonString
+import com.example.data.HttpHeaderItem
+import com.example.ui.MultipleHeadersSection
+import com.example.ui.AddHeaderDialog
+import com.example.ui.HeaderPresetsDialog
+import com.example.ui.DeleteHeaderDialog
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
+import com.example.data.AutomationLogRepository
+import com.example.data.AutomationPreferences
+import com.example.data.ExtractionEngine
+import com.example.data.ExtractionResult
+import com.example.data.LogType
+import com.example.data.RegexRuleRepository
+import com.example.data.SmsQueueRepository
+import com.example.data.db.AutomationLogEntity
+import com.example.data.db.QueueItemEntity
+import com.example.data.db.RegexRuleEntity
+import com.example.network.NetworkDispatcher
+import com.example.service.AutomationForegroundService
+import com.example.ui.theme.AccentError
+import com.example.ui.theme.AccentGreen
+import com.example.ui.theme.AccentPurple
+import com.example.ui.theme.DarkBg
+import com.example.ui.theme.DarkBorder
+import com.example.ui.theme.DarkErrorBg
+import com.example.ui.theme.DarkGreenBg
+import com.example.ui.theme.DarkSurface
+import com.example.ui.theme.DeepPurple
+import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.NeutralButton
+import com.example.ui.theme.TextMuted
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
+import java.util.regex.Pattern
+import kotlin.math.ceil
+import kotlin.math.max
+import kotlin.math.min
+
+class MainActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+
+        setContent {
+            MyApplicationTheme {
+                AutomationMainScreen(
+                    onRequestBatteryOptimization = { requestIgnoreBatteryOptimizations() }
+                )
+            }
+        }
+    }
+
+    private fun requestIgnoreBatteryOptimizations() {
+        try {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+            if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+                AutomationLogRepository.log(
+                    tag = "BATTERY",
+                    message = "Demande d'exemption d'optimisation batterie",
+                    type = LogType.INFO
+                )
+            } else {
+                Toast.makeText(this, "L'application est déjà exemptée des restrictions de batterie.", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            try {
+                val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                startActivity(fallbackIntent)
+            } catch (fallbackEx: Exception) {
+                Toast.makeText(this, "Impossible d'ouvrir les paramètres de batterie: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+}
+
+@Composable
+fun AutomationMainScreen(
+    onRequestBatteryOptimization: () -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = remember { AutomationPreferences(context) }
+
+    val persistedLogs by remember { AutomationLogRepository.getAllLogs() }
+        .collectAsState(initial = emptyList())
+        
+    val isServiceRunning by AutomationLogRepository.serviceRunning.collectAsState()
+    val allRegexRules by remember { RegexRuleRepository.getAllRules() }
+        .collectAsState(initial = RegexRuleRepository.DEFAULT_RULES)
+
+    // Flux de la file d'attente (Queue)
+    val queueItems by remember { SmsQueueRepository.getAllQueueItems() }
+        .collectAsState(initial = emptyList())
+    val pendingQueueCount by remember { SmsQueueRepository.getPendingCount() }
+        .collectAsState(initial = 0)
+    val isQueueRetrying by SmsQueueRepository.isRetrying.collectAsState()
+    val isNetworkAvailable by SmsQueueRepository.isNetworkAvailable.collectAsState()
+
+    // États persistants au niveau global
+    var targetUrlText by rememberSaveable { mutableStateOf(prefs.targetUrl.ifBlank { AutomationPreferences.DEFAULT_TARGET_URL }) }
+    var customHeadersList by remember { mutableStateOf(prefs.getCustomHeaders()) }
+    var showAddHeaderDialog by remember { mutableStateOf(false) }
+    var showPresetsHeaderDialog by remember { mutableStateOf(false) }
+    var headerToDelete by remember { mutableStateOf<HttpHeaderItem?>(null) }
+
+    var isSenderFilterEnabled by rememberSaveable { mutableStateOf(prefs.isSenderFilterEnabled) }
+    var allowedSendersText by rememberSaveable { mutableStateOf(prefs.allowedSenders) }
+    var isRegexEnabled by rememberSaveable { mutableStateOf(prefs.isRegexEnabled) }
+    var sendOnlyExtracted by rememberSaveable { mutableStateOf(prefs.sendOnlyExtracted) }
+
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var showArchitectureDialog by remember { mutableStateOf(false) }
+    var isSendingTestPing by remember { mutableStateOf(false) }
+
+    var selectedLogForDetails by remember { mutableStateOf<AutomationLogEntity?>(null) }
+
+    // Dialogues CRUD pour modèles Regex
+    var ruleToEdit by remember { mutableStateOf<RegexRuleEntity?>(null) }
+    var showCreateRuleDialog by remember { mutableStateOf(false) }
+    var ruleToDelete by remember { mutableStateOf<RegexRuleEntity?>(null) }
+
+    var hasSmsReceivePermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var hasSmsReadPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val powerManager = remember { context.getSystemService(Context.POWER_SERVICE) as? PowerManager }
+    var isBatteryExempted by remember {
+        mutableStateOf(powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true)
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissionsMap ->
+        hasSmsReceivePermission = permissionsMap[Manifest.permission.RECEIVE_SMS] ?: hasSmsReceivePermission
+        hasSmsReadPermission = permissionsMap[Manifest.permission.READ_SMS] ?: hasSmsReadPermission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            hasNotificationPermission = permissionsMap[Manifest.permission.POST_NOTIFICATIONS] ?: hasNotificationPermission
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val permissionsToRequest = mutableListOf(
+            Manifest.permission.RECEIVE_SMS,
+            Manifest.permission.READ_SMS
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        permissionLauncher.launch(permissionsToRequest.toTypedArray())
+    }
+
+    Scaffold(
+        containerColor = DarkBg,
+        topBar = {
+            SophisticatedHeader(
+                onInfoClick = { showArchitectureDialog = true },
+                pendingQueueCount = pendingQueueCount
+            )
+        },
+        bottomBar = {
+            SophisticatedNavBar(
+                selectedTab = selectedTab,
+                onTabSelect = { selectedTab = it },
+                logCount = persistedLogs.size,
+                pendingQueueCount = pendingQueueCount
+            )
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(DarkBg)
+                .padding(innerPadding)
+        ) {
+            when (selectedTab) {
+                0 -> {
+                    SophisticatedDashboardContent(
+                        targetUrl = targetUrlText,
+                        onTargetUrlChange = { newUrl ->
+                            targetUrlText = newUrl
+                            prefs.targetUrl = newUrl
+                        },
+                        headersList = customHeadersList,
+                        onToggleHeader = { id, isChecked ->
+                            val updated = customHeadersList.map {
+                                if (it.id == id) it.copy(isEnabled = isChecked) else it
+                            }
+                            customHeadersList = updated
+                            prefs.saveCustomHeaders(updated)
+                        },
+                        onUpdateHeader = { id, newKey, newVal ->
+                            val updated = customHeadersList.map {
+                                if (it.id == id) it.copy(name = newKey, value = newVal) else it
+                            }
+                            customHeadersList = updated
+                            prefs.saveCustomHeaders(updated)
+                        },
+                        onDeleteHeaderClick = { header ->
+                            headerToDelete = header
+                        },
+                        onAddHeaderClick = {
+                            showAddHeaderDialog = true
+                        },
+                        onPresetsClick = {
+                            showPresetsHeaderDialog = true
+                        },
+                        onResetDefaultsClick = {
+                            val defaults = listOf(
+                                HttpHeaderItem(
+                                    name = AutomationPreferences.DEFAULT_HEADER_NAME,
+                                    value = AutomationPreferences.DEFAULT_HEADER_VALUE,
+                                    isEnabled = true,
+                                    description = "Projet Appwrite Défini"
+                                ),
+                                HttpHeaderItem(
+                                    name = "Content-Type",
+                                    value = "application/json",
+                                    isEnabled = true,
+                                    description = "Type de Contenu"
+                                )
+                            )
+                            customHeadersList = defaults
+                            prefs.saveCustomHeaders(defaults)
+                            Toast.makeText(context, "En-têtes par défaut rétablis", Toast.LENGTH_SHORT).show()
+                        },
+                        onSaveConfig = {
+                            prefs.targetUrl = targetUrlText
+                            prefs.saveCustomHeaders(customHeadersList)
+                            val activeHeadersCount = customHeadersList.count { it.isEnabled }
+                            Toast.makeText(context, "Configuration enregistrée ($activeHeadersCount en-tête(s) actif(s)) !", Toast.LENGTH_SHORT).show()
+                            AutomationLogRepository.log(
+                                tag = "CONFIG",
+                                message = "Configuration mise à jour ($activeHeadersCount en-tête(s) HTTP)",
+                                type = LogType.INFO
+                            )
+                        },
+                        hasSmsPermission = hasSmsReceivePermission && hasSmsReadPermission,
+                        isBatteryExempted = isBatteryExempted,
+                        isServiceRunning = isServiceRunning,
+                        isSendingTestPing = isSendingTestPing,
+                        persistedLogsCount = persistedLogs.size,
+                        pendingQueueCount = pendingQueueCount,
+                        onRequestPermissions = {
+                            val permissionsToRequest = mutableListOf(
+                                Manifest.permission.RECEIVE_SMS,
+                                Manifest.permission.READ_SMS
+                            )
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                            permissionLauncher.launch(permissionsToRequest.toTypedArray())
+                        },
+                        onRequestBatteryOptimization = {
+                            onRequestBatteryOptimization()
+                            isBatteryExempted = powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+                        },
+                        onToggleForegroundService = { start ->
+                            val serviceIntent = Intent(context, AutomationForegroundService::class.java).apply {
+                                action = if (start) AutomationForegroundService.ACTION_START_SERVICE else AutomationForegroundService.ACTION_STOP_SERVICE
+                            }
+                            if (start) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    context.startForegroundService(serviceIntent)
+                                } else {
+                                    context.startService(serviceIntent)
+                                }
+                            } else {
+                                context.startService(serviceIntent)
+                            }
+                        },
+                        onSendTestTransmission = {
+                            isSendingTestPing = true
+                            val effectiveUrl = targetUrlText.ifBlank { AutomationPreferences.DEFAULT_TARGET_URL }
+                            val activeHeaders = mutableMapOf<String, String>()
+                            customHeadersList.filter { it.isEnabled && it.name.isNotBlank() }.forEach {
+                                activeHeaders[it.name.trim()] = it.value.trim()
+                            }
+                            NetworkDispatcher.transmitData(
+                                targetUrl = effectiveUrl,
+                                source = "YAS",
+                                content = "19/08/26 08:16 Credit YAS recu : 500 Ar de Mioranirina 0386135942. Solde YAS actuel : 504 Ar. Bonus de 20 pourcent sur ce rechargement. Ref: 5661921553",
+                                headers = activeHeaders,
+                                onComplete = { success, code, responseBody ->
+                                    isSendingTestPing = false
+                                    val statusText = if (success) "Test Ping Réussi (HTTP $code)" else "Erreur HTTP (HTTP $code)"
+                                    Toast.makeText(context, "$statusText\n${responseBody.take(80)}", Toast.LENGTH_LONG).show()
+                                }
+                            )
+                        }
+                    )
+                }
+                1 -> {
+                    RulesAndSandboxScreen(
+                        rulesList = allRegexRules,
+                        isSenderFilterEnabled = isSenderFilterEnabled,
+                        onSenderFilterEnabledChange = {
+                            isSenderFilterEnabled = it
+                            prefs.isSenderFilterEnabled = it
+                        },
+                        allowedSendersText = allowedSendersText,
+                        onAllowedSendersChange = {
+                            allowedSendersText = it
+                            prefs.allowedSenders = it
+                        },
+                        isRegexEnabled = isRegexEnabled,
+                        onRegexEnabledChange = {
+                            isRegexEnabled = it
+                            prefs.isRegexEnabled = it
+                        },
+                        sendOnlyExtracted = sendOnlyExtracted,
+                        onSendOnlyExtractedChange = {
+                            sendOnlyExtracted = it
+                            prefs.sendOnlyExtracted = it
+                        },
+                        targetUrl = targetUrlText,
+                        headersList = customHeadersList,
+                        onToggleRuleCheck = { id, checked ->
+                            RegexRuleRepository.toggleRuleCheck(id, checked)
+                        },
+                        onCreateNewRule = { showCreateRuleDialog = true },
+                        onEditRule = { rule -> ruleToEdit = rule },
+                        onDeleteRule = { rule -> ruleToDelete = rule },
+                        onResetDefaults = {
+                            RegexRuleRepository.resetToDefaults()
+                            Toast.makeText(context, "Modèles réinitialisés aux valeurs par défaut", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+                2 -> {
+                    SmsQueueScreen(
+                        queueItems = queueItems,
+                        isRetrying = isQueueRetrying,
+                        isNetworkAvailable = isNetworkAvailable,
+                        onRetryAll = {
+                            SmsQueueRepository.retryAllPending(context) { total, succeeded ->
+                                Toast.makeText(context, "Retry terminé: $succeeded/$total réussis", Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        onRetryItem = { itemId ->
+                            SmsQueueRepository.retryItem(context, itemId) { success ->
+                                Toast.makeText(context, if (success) "SMS renvoyé avec succès !" else "Échec du renvoi", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        onDeleteItem = { itemId ->
+                            SmsQueueRepository.deleteItem(itemId)
+                        },
+                        onClearQueue = {
+                            SmsQueueRepository.clearQueue()
+                            Toast.makeText(context, "File d'attente vidée", Toast.LENGTH_SHORT).show()
+                        },
+                        onSimulateFailure = {
+                            val activeHeaders = prefs.getActiveHeadersMap()
+                            SmsQueueRepository.enqueueFailedTransmission(
+                                targetUrl = targetUrlText,
+                                payloadJson = "{\"documentId\":\"unique()\",\"data\":{\"sender\":\"+33699887766\",\"rawMessage\":\"Achat de 49.90 € chez Fnac.\",\"parsedAmount\":49.9,\"operator\":\"MVOLA\",\"createdAtUnix\":${System.currentTimeMillis()}}}",
+                                source = "+33699887766",
+                                contentLength = 31,
+                                errorReason = "Erreur HTTP 500 (Panne serveur / Appwrite indisponible)",
+                                headersMap = activeHeaders
+                            )
+                            Toast.makeText(context, "Simulation : SMS mis en file d'attente Room !", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+                3 -> {
+                    PersistedHistoryView(
+                        logs = persistedLogs,
+                        onSelectLogForDetails = { selectedLogForDetails = it },
+                        onDeleteLog = { id -> AutomationLogRepository.deleteLog(id) },
+                        onClearAllLogs = { AutomationLogRepository.clearLogs() }
+                    )
+                }
+            }
+        }
+    }
+
+    // Modal de création de nouveau modèle
+    if (showCreateRuleDialog) {
+        RuleEditDialog(
+            initialRule = null,
+            onDismiss = { showCreateRuleDialog = false },
+            onSave = { title, pattern, desc, sample, isChecked ->
+                RegexRuleRepository.addRule(title, pattern, desc, sample, isChecked)
+                showCreateRuleDialog = false
+                Toast.makeText(context, "Nouveau modèle Regex '$title' créé !", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    // Modal de modification de modèle
+    ruleToEdit?.let { rule ->
+        RuleEditDialog(
+            initialRule = rule,
+            onDismiss = { ruleToEdit = null },
+            onSave = { title, pattern, desc, sample, isChecked ->
+                RegexRuleRepository.updateRule(rule.id, title, pattern, desc, sample, isChecked)
+                ruleToEdit = null
+                Toast.makeText(context, "Modèle '$title' mis à jour !", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    // Confirmation de suppression
+    ruleToDelete?.let { rule ->
+        AlertDialog(
+            onDismissRequest = { ruleToDelete = null },
+            containerColor = DarkSurface,
+            title = { Text("Supprimer ce modèle ?", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = { Text("Voulez-vous vraiment supprimer le modèle '${rule.title}' ?", color = TextSecondary) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        RegexRuleRepository.deleteRule(rule.id)
+                        ruleToDelete = null
+                        Toast.makeText(context, "Modèle supprimé", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = DarkErrorBg, contentColor = AccentError)
+                ) {
+                    Text("Supprimer")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { ruleToDelete = null }) {
+                    Text("Annuler", color = TextSecondary)
+                }
+            }
+        )
+    }
+
+    // Modal d'ajout d'en-tête HTTP
+    if (showAddHeaderDialog) {
+        AddHeaderDialog(
+            onDismiss = { showAddHeaderDialog = false },
+            onAdd = { name, value, isEnabled, desc ->
+                val newItem = HttpHeaderItem(
+                    name = name,
+                    value = value,
+                    isEnabled = isEnabled,
+                    description = desc
+                )
+                val updated = customHeadersList + newItem
+                customHeadersList = updated
+                prefs.saveCustomHeaders(updated)
+                Toast.makeText(context, "En-tête '$name' ajouté !", Toast.LENGTH_SHORT).show()
+                AutomationLogRepository.log(
+                    tag = "CONFIG_HEADER",
+                    message = "Ajout de l'en-tête HTTP '$name'",
+                    type = LogType.INFO
+                )
+            }
+        )
+    }
+
+    // Modal de modèles d'en-têtes HTTP prédéfinis
+    if (showPresetsHeaderDialog) {
+        HeaderPresetsDialog(
+            onDismiss = { showPresetsHeaderDialog = false },
+            onSelectPreset = { preset ->
+                val updated = customHeadersList + preset
+                customHeadersList = updated
+                prefs.saveCustomHeaders(updated)
+                Toast.makeText(context, "Modèle '${preset.name}' ajouté !", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    // Confirmation de suppression d'en-tête HTTP
+    headerToDelete?.let { header ->
+        DeleteHeaderDialog(
+            header = header,
+            onDismiss = { headerToDelete = null },
+            onConfirm = {
+                val updated = customHeadersList.filterNot { it.id == header.id }
+                customHeadersList = updated
+                prefs.saveCustomHeaders(updated)
+                Toast.makeText(context, "En-tête '${header.name}' supprimé", Toast.LENGTH_SHORT).show()
+                AutomationLogRepository.log(
+                    tag = "CONFIG_HEADER",
+                    message = "Suppression de l'en-tête HTTP '${header.name}'",
+                    type = LogType.INFO
+                )
+            }
+        )
+    }
+
+    selectedLogForDetails?.let { log ->
+        LogDetailsModal(
+            log = log,
+            onDismiss = { selectedLogForDetails = null },
+            onDelete = {
+                AutomationLogRepository.deleteLog(log.id)
+                selectedLogForDetails = null
+                Toast.makeText(context, "Entrée supprimée de la base de données", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    if (showArchitectureDialog) {
+        SophisticatedArchitectureDialog(onDismiss = { showArchitectureDialog = false })
+    }
+}
+
+/**
+ * NOUVEAU MENU : ÉCRAN DE LA FILE D'ATTENTE & GESTION DES ÉCHECS (QUEUE & RETRY)
+ * Permet de visualiser les SMS en échec (ex: 500 Appwrite, coupure réseau),
+ * de lancer le Retry automatique ou manuel et de ne perdre aucun SMS.
+ */
+@Composable
+fun SmsQueueScreen(
+    queueItems: List<QueueItemEntity>,
+    isRetrying: Boolean,
+    isNetworkAvailable: Boolean,
+    onRetryAll: () -> Unit,
+    onRetryItem: (Long) -> Unit,
+    onDeleteItem: (Long) -> Unit,
+    onClearQueue: () -> Unit,
+    onSimulateFailure: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // En-tête avec Statut et Réseau
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Queue, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(24.dp))
+                Column {
+                    Text(
+                        text = "File d'attente (Queue Retry)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "${queueItems.size} SMS en attente de réessai",
+                        fontSize = 11.sp,
+                        color = if (queueItems.isNotEmpty()) AccentError else AccentGreen
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isNetworkAvailable) DarkGreenBg else DarkErrorBg)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(
+                        imageVector = if (isNetworkAvailable) Icons.Default.Wifi else Icons.Default.WifiOff,
+                        contentDescription = null,
+                        tint = if (isNetworkAvailable) AccentGreen else AccentError,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = if (isNetworkAvailable) "RÉSEAU OK" else "HORS LIGNE",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isNetworkAvailable) AccentGreen else AccentError
+                    )
+                }
+            }
+        }
+
+        // BOUTONS D'ACTION PRINCIPAUX (RETRY ALL, CLEAR, SIMULATION)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Button(
+                onClick = onRetryAll,
+                enabled = !isRetrying && queueItems.isNotEmpty(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = DeepPurple, contentColor = AccentPurple),
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .weight(1.3f)
+                    .heightIn(min = 44.dp)
+                    .testTag("btn_retry_all")
+            ) {
+                if (isRetrying) {
+                    CircularProgressIndicator(modifier = Modifier.size(14.dp), color = AccentPurple, strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Renvoi...", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                } else {
+                    Icon(Icons.Default.Replay, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Tout renvoyer (${queueItems.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+
+            OutlinedButton(
+                onClick = onClearQueue,
+                enabled = queueItems.isNotEmpty(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentError),
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .weight(0.85f)
+                    .heightIn(min = 44.dp)
+            ) {
+                Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Vider", fontSize = 11.sp)
+            }
+
+            Button(
+                onClick = onSimulateFailure,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = NeutralButton, contentColor = TextPrimary),
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .weight(1.05f)
+                    .heightIn(min = 44.dp)
+            ) {
+                Icon(Icons.Default.Warning, contentDescription = null, tint = AccentError, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("+ Test 500", fontSize = 11.sp)
+            }
+        }
+
+        // LISTE DES ÉLÉMENTS EN FILE D'ATTENTE
+        Box(modifier = Modifier.weight(1f)) {
+            if (queueItems.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentGreen, modifier = Modifier.size(48.dp))
+                        Text("File d'attente vide", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        Text("Tous les SMS ont été transmis avec succès au webhook !", fontSize = 12.sp, color = TextSecondary)
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(queueItems, key = { it.id }) { item ->
+                        QueueItemCard(
+                            item = item,
+                            onRetry = { onRetryItem(item.id) },
+                            onDelete = { onDeleteItem(item.id) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Carte d'un élément dans la file d'attente
+ */
+@Composable
+fun QueueItemCard(
+    item: QueueItemEntity,
+    onRetry: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(AccentError.copy(alpha = 0.5f)))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(DarkErrorBg)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text("ÉCHEC ENVOI", color = AccentError, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(NeutralButton)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text("Tentative #${item.attemptCount}", color = TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Text(
+                    text = AutomationLogRepository.formatTimeOnly(item.lastAttemptTimestamp),
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    color = TextMuted
+                )
+            }
+
+            Text(
+                text = "SMS de : ${item.source}",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+
+            if (!item.lastError.isNullOrBlank()) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = DarkBg
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = AccentError, modifier = Modifier.size(14.dp))
+                        Text(text = item.lastError, fontSize = 11.sp, color = AccentError)
+                    }
+                }
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                color = DarkBg
+            ) {
+                Text(
+                    text = item.payloadJson,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp,
+                    color = AccentGreen,
+                    modifier = Modifier.padding(8.dp),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Supprimer", tint = AccentError, modifier = Modifier.size(16.dp))
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                Button(
+                    onClick = onRetry,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = DeepPurple, contentColor = AccentPurple),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Réessayer", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * DASHBOARD CONTENT AVEC CONFIGURATION URL & GESTIONNAIRE D'EN-TÊTES HTTP MULTIPLES (HEADERS)
+ */
+@Composable
+fun SophisticatedDashboardContent(
+    targetUrl: String,
+    onTargetUrlChange: (String) -> Unit,
+    headersList: List<HttpHeaderItem>,
+    onToggleHeader: (String, Boolean) -> Unit,
+    onUpdateHeader: (String, String, String) -> Unit,
+    onDeleteHeaderClick: (HttpHeaderItem) -> Unit,
+    onAddHeaderClick: () -> Unit,
+    onPresetsClick: () -> Unit,
+    onResetDefaultsClick: () -> Unit,
+    onSaveConfig: () -> Unit,
+    hasSmsPermission: Boolean,
+    isBatteryExempted: Boolean,
+    isServiceRunning: Boolean,
+    isSendingTestPing: Boolean,
+    persistedLogsCount: Int,
+    pendingQueueCount: Int,
+    onRequestPermissions: () -> Unit,
+    onRequestBatteryOptimization: () -> Unit,
+    onToggleForegroundService: (Boolean) -> Unit,
+    onSendTestTransmission: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // 1. CARTE EN-TÊTE HTTP & ENDPOINT WEBHOOK
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(DarkBorder))
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Dns,
+                            contentDescription = null,
+                            tint = AccentPurple,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "CONFIGURATION WEBHOOK & SÉCURITÉ",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentPurple,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                }
+
+                // URL Cible
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(DarkBg)
+                        .border(1.dp, DarkBorder, RoundedCornerShape(16.dp))
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = "TARGET WEBHOOK URL",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentPurple.copy(alpha = 0.8f),
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    OutlinedTextField(
+                        value = targetUrl,
+                        onValueChange = onTargetUrlChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("input_target_url"),
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            color = TextPrimary
+                        ),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentPurple,
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent
+                        ),
+                        singleLine = true
+                    )
+                }
+
+                // GESTIONNAIRE D'EN-TÊTES HTTP MULTIPLES
+                MultipleHeadersSection(
+                    headers = headersList,
+                    onToggleHeader = onToggleHeader,
+                    onUpdateHeader = onUpdateHeader,
+                    onDeleteHeaderClick = onDeleteHeaderClick,
+                    onAddHeaderClick = onAddHeaderClick,
+                    onPresetsClick = onPresetsClick,
+                    onResetDefaultsClick = onResetDefaultsClick
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onSaveConfig,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = DeepPurple,
+                            contentColor = AccentPurple
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .testTag("btn_save_url")
+                    ) {
+                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Enregistrer", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    Button(
+                        onClick = onSendTestTransmission,
+                        enabled = !isSendingTestPing,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NeutralButton,
+                            contentColor = TextPrimary
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .testTag("btn_test_ping")
+                    ) {
+                        if (isSendingTestPing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = AccentPurple,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Test Ping", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. BROADCAST RECEIVER STATUS
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(DarkBorder))
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Sensors,
+                            contentDescription = null,
+                            tint = AccentPurple,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "BROADCAST RECEIVER",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentPurple,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                    Text(
+                        text = "PRIORITY: 999",
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = AccentGreen,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = "Incoming SMS Listener",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "Filtrage expéditeur + Multi-Regex + Retry Queue en cas d'erreur.",
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(DarkGreenBg)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(AccentGreen)
+                    )
+                    Text(
+                        text = "FILTER: android.provider.Telephony.SMS_RECEIVED",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        color = AccentGreen
+                    )
+                }
+            }
+        }
+
+        // 3. FOREGROUND SERVICE STATUS
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(DarkBorder))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Widgets,
+                            contentDescription = null,
+                            tint = AccentPurple,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "FOREGROUND SERVICE",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentPurple,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                    Text(
+                        text = "Persistence & Notification Engine",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "Type dataSync • $persistedLogsCount logs • $pendingQueueCount en attente",
+                        fontSize = 11.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(width = 52.dp, height = 28.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(if (isServiceRunning) DeepPurple else NeutralButton)
+                        .clickable { onToggleForegroundService(!isServiceRunning) }
+                        .padding(4.dp)
+                        .testTag("toggle_service"),
+                    contentAlignment = if (isServiceRunning) Alignment.CenterEnd else Alignment.CenterStart
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(if (isServiceRunning) AccentPurple else TextMuted)
+                    )
+                }
+            }
+        }
+
+        // 4. PERMISSIONS & BATTERIE
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = onRequestPermissions,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (hasSmsPermission) DeepPurple else DarkErrorBg,
+                    contentColor = if (hasSmsPermission) AccentPurple else AccentError
+                ),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 46.dp)
+                    .testTag("btn_request_permissions")
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = if (hasSmsPermission) Icons.Default.VerifiedUser else Icons.Default.Warning,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = if (hasSmsPermission) "Perms SMS OK" else "Accorder SMS",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Button(
+                onClick = onRequestBatteryOptimization,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isBatteryExempted) DarkGreenBg else NeutralButton,
+                    contentColor = if (isBatteryExempted) AccentGreen else TextPrimary
+                ),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 46.dp)
+                    .testTag("btn_battery_optimization")
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.BatteryChargingFull,
+                        contentDescription = null,
+                        tint = if (isBatteryExempted) AccentGreen else TextPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = if (isBatteryExempted) "Batterie OK" else "Optimisation",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+/**
+ * Écran complet de gestion des règles avec :
+ * - Création, modification, suppression de modèles prédéfinis (CRUD)
+ * - Groupement multi-modèles par CASES À COCHER faciles sans devoir écrire de regex complexe
+ * - Sandbox interactive avec simulation multi-données et payload JSON garanti
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun RulesAndSandboxScreen(
+    rulesList: List<RegexRuleEntity>,
+    isSenderFilterEnabled: Boolean,
+    onSenderFilterEnabledChange: (Boolean) -> Unit,
+    allowedSendersText: String,
+    onAllowedSendersChange: (String) -> Unit,
+    isRegexEnabled: Boolean,
+    onRegexEnabledChange: (Boolean) -> Unit,
+    sendOnlyExtracted: Boolean,
+    onSendOnlyExtractedChange: (Boolean) -> Unit,
+    targetUrl: String,
+    headersList: List<HttpHeaderItem> = emptyList(),
+    onToggleRuleCheck: (String, Boolean) -> Unit,
+    onCreateNewRule: () -> Unit,
+    onEditRule: (RegexRuleEntity) -> Unit,
+    onDeleteRule: (RegexRuleEntity) -> Unit,
+    onResetDefaults: () -> Unit
+) {
+    val context = LocalContext.current
+    val scrollState = rememberScrollState()
+
+    val checkedRules = remember(rulesList) { rulesList.filter { it.isChecked } }
+
+    var testSenderInput by rememberSaveable { mutableStateOf("YAS") }
+    var testMessageInput by rememberSaveable { mutableStateOf("19/08/26 08:16 Credit YAS recu : 500 Ar de Mioranirina 0386135942. Solde YAS actuel : 504 Ar. Bonus de 20 pourcent sur ce rechargement. Ref: 5661921553") }
+    var isSendingFromSandbox by remember { mutableStateOf(false) }
+    var lastSandboxResponse by remember { mutableStateOf<Triple<Boolean, Int, String>?>(null) }
+    var sandboxResponseViewMode by remember { mutableIntStateOf(0) } // 0: JSON / Code, 1: WebView
+
+    val senderAllowed = remember(testSenderInput, allowedSendersText, isSenderFilterEnabled) {
+        ExtractionEngine.isSenderAllowed(testSenderInput, allowedSendersText, isSenderFilterEnabled)
+    }
+
+    // Évaluation multi-modèles groupés en temps réel
+    val liveMultiResult = remember(testMessageInput, checkedRules, isRegexEnabled) {
+        ExtractionEngine.applyMultipleRules(testMessageInput, checkedRules, isRegexEnabled)
+    }
+
+    val livePayload = remember(testSenderInput, testMessageInput, liveMultiResult, sendOnlyExtracted) {
+        ExtractionEngine.buildCustomJsonPayload(
+            source = testSenderInput,
+            originalContent = testMessageInput,
+            extractionResult = liveMultiResult,
+            sendOnlyExtracted = sendOnlyExtracted
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // En-tête de section
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Layers, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(24.dp))
+                Column {
+                    Text(
+                        text = "Modèles Regex Groupés",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "${checkedRules.size} modèle(s) coché(s) actif(s)",
+                        fontSize = 11.sp,
+                        color = AccentGreen
+                    )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(
+                    onClick = onResetDefaults,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Restore, contentDescription = "Réinitialiser", modifier = Modifier.size(14.dp))
+                }
+
+                Button(
+                    onClick = onCreateNewRule,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = DeepPurple, contentColor = AccentPurple),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier.testTag("btn_create_rule")
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Nouveau", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // 1. CARTE FILTRAGE PAR EXPÉDITEUR
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(DarkBorder))
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.FilterAlt, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(20.dp))
+                        Text(
+                            text = "FILTRE EXPÉDITEURS AUTORISÉS",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentPurple,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+
+                    Switch(
+                        checked = isSenderFilterEnabled,
+                        onCheckedChange = onSenderFilterEnabledChange,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = AccentPurple,
+                            checkedTrackColor = DeepPurple,
+                            uncheckedThumbColor = TextMuted,
+                            uncheckedTrackColor = NeutralButton
+                        )
+                    )
+                }
+
+                Text(
+                    text = if (isSenderFilterEnabled) 
+                        "Seuls les SMS provenant de ces expéditeurs seront transmis à l'API HTTP."
+                        else "Filtre inactif : Tous les SMS entrants sont traités sans restriction.",
+                    fontSize = 12.sp,
+                    color = if (isSenderFilterEnabled) AccentGreen else TextSecondary
+                )
+
+                if (isSenderFilterEnabled) {
+                    OutlinedTextField(
+                        value = allowedSendersText,
+                        onValueChange = onAllowedSendersChange,
+                        label = { Text("Numéros ou Noms autorisés (séparés par virgules)", color = TextMuted, fontSize = 12.sp) },
+                        placeholder = { Text("ex: BANQUE, +33612345678, ORANGE, SERVICE_OTP", color = TextMuted) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("input_allowed_senders"),
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            color = TextPrimary
+                        ),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentPurple,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedContainerColor = DarkBg,
+                            unfocusedContainerColor = DarkBg
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            }
+        }
+
+        // 2. LISTE DES MODÈLES AVEC CASES À COCHER & ACTIONS (CREATE / EDIT / DELETE)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(DarkBorder))
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Code, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(20.dp))
+                        Text(
+                            text = "MODÈLES & GROUPEMENT ACTIF",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentPurple,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+
+                    Switch(
+                        checked = isRegexEnabled,
+                        onCheckedChange = onRegexEnabledChange,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = AccentPurple,
+                            checkedTrackColor = DeepPurple,
+                            uncheckedThumbColor = TextMuted,
+                            uncheckedTrackColor = NeutralButton
+                        )
+                    )
+                }
+
+                if (isRegexEnabled) {
+                    Text(
+                        text = "Cochez un ou plusieurs modèles pour former votre groupe d'extraction :",
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        rulesList.forEach { rule ->
+                            RuleListItemCard(
+                                rule = rule,
+                                onToggleCheck = { isChecked -> onToggleRuleCheck(rule.id, isChecked) },
+                                onEdit = { onEditRule(rule) },
+                                onDelete = { onDeleteRule(rule) },
+                                onLoadSample = {
+                                    testMessageInput = rule.sampleMessage
+                                    Toast.makeText(context, "Exemple chargé dans le Bac à sable", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(DarkBg)
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Remplacer 'content' par la 1ère donnée extraite",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Note: 'original_sms' et 'source' restent toujours présents dans le JSON.",
+                                fontSize = 11.sp,
+                                color = TextSecondary
+                            )
+                        }
+                        Switch(
+                            checked = sendOnlyExtracted,
+                            onCheckedChange = onSendOnlyExtractedChange,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = AccentPurple,
+                                checkedTrackColor = DeepPurple,
+                                uncheckedThumbColor = TextMuted,
+                                uncheckedTrackColor = NeutralButton
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        // 3. BAC À SABLE (SANDBOX) AVEC ÉVALUATION MULTI-MODÈLES
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(AccentPurple.copy(alpha = 0.5f)))
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Science, contentDescription = null, tint = AccentGreen, modifier = Modifier.size(22.dp))
+                        Text(
+                            text = "BAC À SABLE (MULTI-EXTRACTION)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentGreen,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(DarkGreenBg)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text("SIMULATION EN DIRECT", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = AccentGreen)
+                    }
+                }
+
+                Text(
+                    text = "Observez comment les ${checkedRules.size} modèles cochés capturent simultanément leurs variables dans le message :",
+                    fontSize = 11.sp,
+                    color = TextSecondary
+                )
+
+                OutlinedTextField(
+                    value = testSenderInput,
+                    onValueChange = { testSenderInput = it },
+                    label = { Text("Expéditeur source (numéro ou nom)", color = TextMuted, fontSize = 11.sp) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("input_sandbox_sender"),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = TextPrimary, fontSize = 12.sp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentPurple,
+                        unfocusedBorderColor = DarkBorder,
+                        focusedContainerColor = DarkBg,
+                        unfocusedContainerColor = DarkBg
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = testMessageInput,
+                    onValueChange = { testMessageInput = it },
+                    label = { Text("Corps du message SMS test", color = TextMuted, fontSize = 11.sp) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("input_sandbox_message"),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = TextPrimary, fontSize = 12.sp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentPurple,
+                        unfocusedBorderColor = DarkBorder,
+                        focusedContainerColor = DarkBg,
+                        unfocusedContainerColor = DarkBg
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    maxLines = 4
+                )
+
+                // Résultat de l'évaluation groupée
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(DarkBg)
+                        .border(1.dp, DarkBorder, RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "RÉSULTAT DE L'EXTRACTION GROUPÉE :",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentPurple.copy(alpha = 0.8f),
+                        letterSpacing = 0.5.sp
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Filtre d'expéditeur :", fontSize = 11.sp, color = TextMuted)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(if (senderAllowed) DarkGreenBg else DarkErrorBg)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = if (senderAllowed) "AUTORISÉ (Sera envoyé)" else "BLOQUÉ (Sera ignoré)",
+                                color = if (senderAllowed) AccentGreen else AccentError,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    if (isRegexEnabled) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Modèles ayant matché :", fontSize = 11.sp, color = TextMuted)
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(if (liveMultiResult.isMatch) DarkGreenBg else DarkErrorBg)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = if (liveMultiResult.isMatch) "${liveMultiResult.matchedRules.size} / ${checkedRules.size} MODÈLE(S)" else "AUCUN MATCH",
+                                    color = if (liveMultiResult.isMatch) AccentGreen else AccentError,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Répartition par modèle
+                        if (liveMultiResult.isMatch && liveMultiResult.ruleBreakdown.isNotEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Détail par règle cochée :", fontSize = 11.sp, color = TextMuted)
+                                liveMultiResult.ruleBreakdown.forEach { (modelTitle, values) ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(DarkSurface)
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(text = modelTitle, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            values.forEach { v ->
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(4.dp))
+                                                        .background(DeepPurple)
+                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text(text = v, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = AccentPurple, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "PAYLOAD JSON STRUCTURÉ (PRÊT POUR L'API) :",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextMuted,
+                        letterSpacing = 0.5.sp
+                    )
+                    PrettyJsonViewer(
+                        jsonString = livePayload,
+                        title = "Appwrite Document Payload",
+                        badgeText = "PAYLOAD JSON",
+                        defaultViewMode = 0
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        if (!senderAllowed) {
+                            Toast.makeText(context, "Expéditeur bloqué par vos règles de filtrage.", Toast.LENGTH_LONG).show()
+                            AutomationLogRepository.log(
+                                tag = "SANDBOX_SIM",
+                                message = "Test bloqué par filtre d'expéditeur ($testSenderInput)",
+                                type = LogType.INFO,
+                                source = testSenderInput,
+                                details = "Expéditeur non autorisé."
+                            )
+                            return@Button
+                        }
+
+                        isSendingFromSandbox = true
+                        AutomationLogRepository.log(
+                            tag = "SANDBOX_SIM",
+                            message = "Test Sandbox (${liveMultiResult.matchedRules.size} modèles matchés)",
+                            type = LogType.SMS_INTERCEPTED,
+                            details = "Simulation manuelle multi-modèles.\nDonnées: ${liveMultiResult.allExtractedValues.joinToString(", ")}",
+                            payloadJson = livePayload,
+                            source = testSenderInput
+                        )
+
+                        val effectiveTargetUrl = targetUrl.ifBlank { AutomationPreferences.DEFAULT_TARGET_URL }
+                        val activeHeaders = mutableMapOf<String, String>()
+                        headersList.filter { it.isEnabled && it.name.isNotBlank() }.forEach {
+                            activeHeaders[it.name.trim()] = it.value.trim()
+                        }
+
+                        NetworkDispatcher.transmitDataWithCustomPayload(
+                            targetUrl = effectiveTargetUrl,
+                            payloadJson = livePayload,
+                            source = testSenderInput,
+                            contentLength = testMessageInput.length,
+                            headers = activeHeaders,
+                            onComplete = { success, code, responseBody ->
+                                isSendingFromSandbox = false
+                                lastSandboxResponse = Triple(success, code, responseBody)
+                                Toast.makeText(
+                                    context,
+                                    if (success) "Test HTTP Réussi (Code $code)" else "Erreur HTTP (Code $code) -> Mis en file d'attente",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+                    },
+                    enabled = !isSendingFromSandbox,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = DeepPurple, contentColor = AccentPurple),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("btn_sandbox_transmit")
+                ) {
+                    if (isSendingFromSandbox) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = AccentPurple, strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Transmettre ce test à l'API HTTP", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+
+                // Affichage direct et complet de la réponse du serveur pour debug
+                lastSandboxResponse?.let { (success, code, body) ->
+                    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = if (success) DarkGreenBg.copy(alpha = 0.4f) else DarkErrorBg.copy(alpha = 0.4f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (success) AccentGreen.copy(alpha = 0.6f) else AccentError.copy(alpha = 0.6f)
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(if (success) AccentGreen else AccentError)
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = if (code > 0) "HTTP $code" else "ERREUR RÉSEAU",
+                                            color = Color.Black,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                    Text(
+                                        text = if (success) "RÉPONSE SERVEUR" else "ÉCHEC SERVEUR",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = if (success) AccentGreen else AccentError
+                                    )
+                                }
+
+                                TextButton(
+                                    onClick = {
+                                        clipboardManager.setText(AnnotatedString(body))
+                                        Toast.makeText(context, "Réponse copiée", Toast.LENGTH_SHORT).show()
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(12.dp), tint = if (success) AccentGreen else AccentError)
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text("Copier", fontSize = 10.sp, color = if (success) AccentGreen else AccentError)
+                                }
+                            }
+
+                            // Boutons d'onglets : ✨ Pretty JSON, Code Brut, WebView
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(DarkBg)
+                                    .padding(3.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (sandboxResponseViewMode == 0) DeepPurple else Color.Transparent)
+                                        .clickable { sandboxResponseViewMode = 0 }
+                                        .padding(vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Icon(Icons.Default.Layers, contentDescription = null, modifier = Modifier.size(11.dp), tint = if (sandboxResponseViewMode == 0) AccentPurple else TextMuted)
+                                        Text("✨ Pretty JSON", fontSize = 10.sp, fontWeight = if (sandboxResponseViewMode == 0) FontWeight.Bold else FontWeight.Normal, color = if (sandboxResponseViewMode == 0) TextPrimary else TextMuted)
+                                    }
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (sandboxResponseViewMode == 1) DeepPurple else Color.Transparent)
+                                        .clickable { sandboxResponseViewMode = 1 }
+                                        .padding(vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(11.dp), tint = if (sandboxResponseViewMode == 1) AccentPurple else TextMuted)
+                                        Text("Code Brut", fontSize = 10.sp, fontWeight = if (sandboxResponseViewMode == 1) FontWeight.Bold else FontWeight.Normal, color = if (sandboxResponseViewMode == 1) TextPrimary else TextMuted)
+                                    }
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (sandboxResponseViewMode == 2) DeepPurple else Color.Transparent)
+                                        .clickable { sandboxResponseViewMode = 2 }
+                                        .padding(vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(11.dp), tint = if (sandboxResponseViewMode == 2) AccentPurple else TextMuted)
+                                        Text("WebView", fontSize = 10.sp, fontWeight = if (sandboxResponseViewMode == 2) FontWeight.Bold else FontWeight.Normal, color = if (sandboxResponseViewMode == 2) TextPrimary else TextMuted)
+                                    }
+                                }
+                            }
+
+                            when (sandboxResponseViewMode) {
+                                0 -> {
+                                    PrettyJsonViewer(
+                                        jsonString = body,
+                                        title = "Réponse Serveur Formatée",
+                                        badgeText = "RÉPONSE SERVEUR",
+                                        defaultViewMode = 0
+                                    )
+                                }
+                                1 -> {
+                                    Text(
+                                        text = if (body.isNotBlank()) body else "(Corps de réponse vide reçu du serveur)",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 11.sp,
+                                        color = TextPrimary,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(DarkBg)
+                                            .padding(8.dp)
+                                    )
+                                }
+                                2 -> {
+                                    ServerResponseWebView(
+                                        content = body,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(min = 160.dp, max = 360.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(DarkBg)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+/**
+ * Carte d'un modèle unitaire dans la liste avec :
+ * - Case à cocher pour groupement direct
+ * - Titre et Formule
+ * - Bouton Modifier (Edit)
+ * - Bouton Supprimer (Delete)
+ * - Bouton Tester l'exemple
+ */
+@Composable
+fun RuleListItemCard(
+    rule: RegexRuleEntity,
+    onToggleCheck: (Boolean) -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onLoadSample: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { onToggleCheck(!rule.isChecked) },
+        shape = RoundedCornerShape(14.dp),
+        color = if (rule.isChecked) DeepPurple.copy(alpha = 0.45f) else DarkBg,
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = androidx.compose.ui.graphics.SolidColor(if (rule.isChecked) AccentPurple else DarkBorder)
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Checkbox(
+                        checked = rule.isChecked,
+                        onToggleCheck,
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = AccentPurple,
+                            uncheckedColor = TextMuted,
+                            checkmarkColor = DeepPurple
+                        )
+                    )
+
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = rule.title,
+                                fontSize = 13.sp,
+                                fontWeight = if (rule.isChecked) FontWeight.Bold else FontWeight.Medium,
+                                color = if (rule.isChecked) AccentPurple else TextPrimary
+                            )
+                            if (rule.isCustom) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(NeutralButton)
+                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                ) {
+                                    Text("PERSO", fontSize = 8.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                        Text(
+                            text = rule.description,
+                            fontSize = 11.sp,
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    IconButton(onClick = onLoadSample, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = "Tester cet exemple", tint = AccentGreen, modifier = Modifier.size(18.dp))
+                    }
+
+                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = "Modifier", tint = AccentPurple, modifier = Modifier.size(16.dp))
+                    }
+
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Delete, contentDescription = "Supprimer", tint = AccentError, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 36.dp),
+                shape = RoundedCornerShape(6.dp),
+                color = DarkSurface
+            ) {
+                Text(
+                    text = rule.pattern,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp,
+                    color = AccentGreen,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Dialogue Modal de Création & Modification de Modèle Regex
+ */
+@Composable
+fun RuleEditDialog(
+    initialRule: RegexRuleEntity?,
+    onDismiss: () -> Unit,
+    onSave: (title: String, pattern: String, description: String, sample: String, isChecked: Boolean) -> Unit
+) {
+    var title by remember { mutableStateOf(initialRule?.title ?: "") }
+    var patternText by remember { mutableStateOf(initialRule?.pattern ?: "") }
+    var description by remember { mutableStateOf(initialRule?.description ?: "") }
+    var sampleMessage by remember { mutableStateOf(initialRule?.sampleMessage ?: "") }
+    var isChecked by remember { mutableStateOf(initialRule?.isChecked ?: true) }
+
+    val regexSyntaxValid = remember(patternText) {
+        if (patternText.isBlank()) true else try {
+            Pattern.compile(patternText)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .fillMaxHeight(0.85f),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(DarkBorder))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (initialRule == null) "Créer un Modèle Regex" else "Modifier le Modèle",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentPurple
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Fermer", tint = TextMuted)
+                    }
+                }
+
+                HorizontalDivider(color = DarkBorder)
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Nom du modèle (ex: Code OTP, Montant, Réf)", color = TextMuted, fontSize = 12.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = TextPrimary, fontSize = 13.sp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentPurple,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedContainerColor = DarkBg,
+                            unfocusedContainerColor = DarkBg
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
+
+                    OutlinedTextField(
+                        value = patternText,
+                        onValueChange = { patternText = it },
+                        label = { Text("Formule Regex (avec groupes de capture)", color = TextMuted, fontSize = 12.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, color = if (regexSyntaxValid) AccentGreen else AccentError, fontSize = 12.sp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = if (regexSyntaxValid) AccentPurple else AccentError,
+                            unfocusedBorderColor = if (regexSyntaxValid) DarkBorder else AccentError,
+                            focusedContainerColor = DarkBg,
+                            unfocusedContainerColor = DarkBg
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    if (!regexSyntaxValid) {
+                        Text("⚠️ Erreur de syntaxe dans votre formule Regex", color = AccentError, fontSize = 11.sp)
+                    }
+
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        label = { Text("Description (ex: Extrait la référence du colis)", color = TextMuted, fontSize = 12.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = TextPrimary, fontSize = 12.sp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentPurple,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedContainerColor = DarkBg,
+                            unfocusedContainerColor = DarkBg
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = sampleMessage,
+                        onValueChange = { sampleMessage = it },
+                        label = { Text("Exemple de SMS pour le test", color = TextMuted, fontSize = 12.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = TextPrimary, fontSize = 12.sp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentPurple,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedContainerColor = DarkBg,
+                            unfocusedContainerColor = DarkBg
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        maxLines = 3
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(DarkBg)
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isChecked,
+                            onCheckedChange = { isChecked = it },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = AccentPurple,
+                                uncheckedColor = TextMuted,
+                                checkmarkColor = DeepPurple
+                            )
+                        )
+                        Text(
+                            text = "Activer immédiatement dans le groupe de modèles cochés",
+                            fontSize = 12.sp,
+                            color = TextPrimary
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = DarkBorder)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(onClick = onDismiss, shape = RoundedCornerShape(12.dp)) {
+                        Text("Annuler", color = TextSecondary)
+                    }
+
+                    Button(
+                        onClick = {
+                            if (title.isNotBlank() && patternText.isNotBlank() && regexSyntaxValid) {
+                                onSave(title, patternText, description, sampleMessage, isChecked)
+                            }
+                        },
+                        enabled = title.isNotBlank() && patternText.isNotBlank() && regexSyntaxValid,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = DeepPurple, contentColor = AccentPurple)
+                    ) {
+                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Enregistrer le modèle")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SophisticatedHeader(
+    onInfoClick: () -> Unit,
+    pendingQueueCount: Int
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DarkBg)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.weight(1f, fill = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(AccentPurple),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Architecture,
+                    contentDescription = null,
+                    tint = DeepPurple,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Column {
+                Text(
+                    text = "EduAutomate Lab",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        letterSpacing = (-0.2).sp
+                    ),
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(NeutralButton)
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "API 23–34",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentPurple,
+                            letterSpacing = 0.3.sp
+                        )
+                    }
+                    if (pendingQueueCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(DarkErrorBg)
+                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "QUEUE: $pendingQueueCount",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentError,
+                                letterSpacing = 0.3.sp
+                            )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(DarkGreenBg)
+                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "QUEUE: 0",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentGreen,
+                                letterSpacing = 0.3.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        IconButton(
+            onClick = onInfoClick,
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .testTag("btn_arch_info")
+        ) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = "Architecture et Explications",
+                tint = TextMuted,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun PersistedHistoryView(
+    logs: List<AutomationLogEntity>,
+    onSelectLogForDetails: (AutomationLogEntity) -> Unit,
+    onDeleteLog: (Long) -> Unit,
+    onClearAllLogs: () -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedFilterType by remember { mutableStateOf("ALL") }
+    var isTableView by remember { mutableStateOf(true) }
+    
+    var pageSize by remember { mutableIntStateOf(10) }
+    var currentPage by remember { mutableIntStateOf(1) }
+
+    val filteredLogs = remember(logs, searchQuery, selectedFilterType) {
+        logs.filter { item ->
+            val matchesFilter = when (selectedFilterType) {
+                "SMS" -> item.type == "SMS_INTERCEPTED"
+                "HTTP_OK" -> item.type == "HTTP_SUCCESS"
+                "HTTP_ERR" -> item.type == "HTTP_ERROR"
+                "SERVICE" -> item.type == "SERVICE_LIFECYCLE"
+                else -> true
+            }
+            val matchesQuery = if (searchQuery.isBlank()) {
+                true
+            } else {
+                val q = searchQuery.trim().lowercase()
+                item.message.lowercase().contains(q) ||
+                item.tag.lowercase().contains(q) ||
+                (item.source?.lowercase()?.contains(q) == true) ||
+                (item.details?.lowercase()?.contains(q) == true) ||
+                (item.payloadJson?.lowercase()?.contains(q) == true) ||
+                (item.status.lowercase().contains(q))
+            }
+            matchesFilter && matchesQuery
+        }
+    }
+
+    val totalPages = max(1, ceil(filteredLogs.size.toDouble() / pageSize).toInt())
+
+    LaunchedEffect(filteredLogs.size, pageSize) {
+        if (currentPage > totalPages) {
+            currentPage = totalPages
+        }
+    }
+
+    val paginatedLogs = remember(filteredLogs, currentPage, pageSize) {
+        val startIndex = (currentPage - 1) * pageSize
+        val endIndex = min(startIndex + pageSize, filteredLogs.size)
+        if (startIndex in filteredLogs.indices) {
+            filteredLogs.subList(startIndex, endIndex)
+        } else {
+            emptyList()
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(
+                    imageVector = Icons.Default.Storage,
+                    contentDescription = null,
+                    tint = AccentPurple,
+                    modifier = Modifier.size(22.dp)
+                )
+                Column {
+                    Text(
+                        text = "Historique Local (Room DB)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "${filteredLogs.size} sur ${logs.size} enregistrements",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                IconButton(
+                    onClick = { isTableView = !isTableView },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(DarkSurface)
+                ) {
+                    Icon(
+                        imageVector = if (isTableView) Icons.Default.ViewList else Icons.Default.TableChart,
+                        contentDescription = "Basculer affichage",
+                        tint = AccentPurple,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onClearAllLogs,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(DarkSurface)
+                        .testTag("btn_clear_logs")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteSweep,
+                        contentDescription = "Effacer l'historique",
+                        tint = AccentError,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = {
+                searchQuery = it
+                currentPage = 1
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("input_search_history"),
+            placeholder = { Text("Rechercher par message, numéro, statut, code...", fontSize = 12.sp, color = TextMuted) },
+            leadingIcon = {
+                Icon(Icons.Default.Search, contentDescription = null, tint = TextMuted, modifier = Modifier.size(18.dp))
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = ""; currentPage = 1 }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Effacer", tint = TextMuted, modifier = Modifier.size(16.dp))
+                    }
+                }
+            },
+            singleLine = true,
+            textStyle = androidx.compose.ui.text.TextStyle(color = TextPrimary, fontSize = 12.sp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = AccentPurple,
+                unfocusedBorderColor = DarkBorder,
+                focusedContainerColor = DarkSurface,
+                unfocusedContainerColor = DarkSurface
+            ),
+            shape = RoundedCornerShape(14.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            FilterBadgeChip(label = "Tous (${logs.size})", selected = selectedFilterType == "ALL", onClick = { selectedFilterType = "ALL"; currentPage = 1 })
+            FilterBadgeChip(label = "SMS Reçus", selected = selectedFilterType == "SMS", onClick = { selectedFilterType = "SMS"; currentPage = 1 })
+            FilterBadgeChip(label = "HTTP 200 OK", selected = selectedFilterType == "HTTP_OK", onClick = { selectedFilterType = "HTTP_OK"; currentPage = 1 })
+            FilterBadgeChip(label = "Erreurs", selected = selectedFilterType == "HTTP_ERR", onClick = { selectedFilterType = "HTTP_ERR"; currentPage = 1 })
+            FilterBadgeChip(label = "Service", selected = selectedFilterType == "SERVICE", onClick = { selectedFilterType = "SERVICE"; currentPage = 1 })
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Box(modifier = Modifier.weight(1f)) {
+            if (filteredLogs.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Search, contentDescription = null, tint = TextMuted, modifier = Modifier.size(40.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (searchQuery.isNotEmpty()) "Aucun résultat pour \"$searchQuery\"" else "Aucune donnée enregistrée",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            } else {
+                if (isTableView) {
+                    LogDataTable(logs = paginatedLogs, onRowClick = onSelectLogForDetails)
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(paginatedLogs, key = { it.id }) { logItem ->
+                            PersistedLogCard(event = logItem, onClick = { onSelectLogForDetails(logItem) })
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        PaginationControls(
+            currentPage = currentPage,
+            totalPages = totalPages,
+            pageSize = pageSize,
+            totalItems = filteredLogs.size,
+            onPageChange = { currentPage = it },
+            onPageSizeChange = {
+                pageSize = it
+                currentPage = 1
+            }
+        )
+    }
+}
+
+@Composable
+fun LogDataTable(
+    logs: List<AutomationLogEntity>,
+    onRowClick: (AutomationLogEntity) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxSize(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(DarkBorder))
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(DarkBg)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "HEURE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextMuted, modifier = Modifier.width(60.dp))
+                Text(text = "TYPE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextMuted, modifier = Modifier.width(80.dp))
+                Text(text = "MESSAGE / SOURCE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextMuted, modifier = Modifier.weight(1f))
+                Text(text = "STATUT", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextMuted, modifier = Modifier.width(65.dp), textAlign = TextAlign.End)
+            }
+
+            HorizontalDivider(color = DarkBorder)
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 4.dp)
+            ) {
+                items(logs, key = { it.id }) { log ->
+                    DataTableRow(log = log, onClick = { onRowClick(log) })
+                    HorizontalDivider(color = DarkBorder.copy(alpha = 0.5f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DataTableRow(
+    log: AutomationLogEntity,
+    onClick: () -> Unit
+) {
+    val (badgeBg, badgeTextColor) = when (log.type) {
+        "SMS_INTERCEPTED" -> DarkGreenBg to AccentGreen
+        "HTTP_SUCCESS" -> DarkGreenBg to AccentGreen
+        "HTTP_ERROR" -> DarkErrorBg to AccentError
+        "HTTP_REQUEST" -> DeepPurple to AccentPurple
+        else -> DarkBg to TextSecondary
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = AutomationLogRepository.formatTimeOnly(log.timestamp),
+            fontFamily = FontFamily.Monospace,
+            fontSize = 11.sp,
+            color = TextSecondary,
+            modifier = Modifier.width(60.dp)
+        )
+
+        Box(
+            modifier = Modifier
+                .width(80.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(badgeBg)
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = when (log.type) {
+                    "SMS_INTERCEPTED" -> "SMS"
+                    "HTTP_SUCCESS" -> "HTTP 200"
+                    "HTTP_ERROR" -> "ERREUR"
+                    "HTTP_REQUEST" -> "POST"
+                    "SERVICE_LIFECYCLE" -> "SERVICE"
+                    else -> log.type.take(6)
+                },
+                color = badgeTextColor,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = log.message,
+                fontSize = 12.sp,
+                color = TextPrimary,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (!log.source.isNullOrBlank()) {
+                Text(
+                    text = "De: ${log.source}",
+                    fontSize = 10.sp,
+                    color = AccentPurple,
+                    maxLines = 1
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(6.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.width(65.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Text(
+                text = log.status.take(8),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (log.status.contains("SUCCESS") || log.status.contains("RECEIVED")) AccentGreen else if (log.status.contains("ERROR") || log.status.contains("FAILED")) AccentError else TextMuted,
+                maxLines = 1
+            )
+            Icon(
+                imageVector = Icons.Default.OpenInFull,
+                contentDescription = null,
+                tint = TextMuted,
+                modifier = Modifier
+                    .size(12.dp)
+                    .padding(start = 2.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun PersistedLogCard(
+    event: AutomationLogEntity,
+    onClick: () -> Unit
+) {
+    val (badgeBg, badgeTextColor, badgeLabel) = when (event.type) {
+        "SMS_INTERCEPTED" -> Triple(DarkGreenBg, AccentGreen, "SMS REÇU")
+        "HTTP_REQUEST" -> Triple(DeepPurple, AccentPurple, "HTTP POST")
+        "HTTP_SUCCESS" -> Triple(DarkGreenBg, AccentGreen, "HTTP 200 OK")
+        "HTTP_ERROR" -> Triple(DarkErrorBg, AccentError, "HTTP ERREUR")
+        "SERVICE_LIFECYCLE" -> Triple(DarkBg, AccentPurple, "SERVICE")
+        else -> Triple(DarkBg, TextSecondary, event.type)
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(DarkBorder))
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(badgeBg)
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = badgeLabel,
+                        color = badgeTextColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Text(
+                    text = AutomationLogRepository.formatFullDateTime(event.timestamp),
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = TextMuted
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = event.message,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+
+            if (!event.source.isNullOrBlank()) {
+                Text(
+                    text = "Source: ${event.source}",
+                    fontSize = 11.sp,
+                    color = AccentPurple
+                )
+            }
+
+            if (!event.payloadJson.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = event.payloadJson,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp,
+                    color = AccentGreen,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PaginationControls(
+    currentPage: Int,
+    totalPages: Int,
+    pageSize: Int,
+    totalItems: Int,
+    onPageChange: (Int) -> Unit,
+    onPageSizeChange: (Int) -> Unit
+) {
+    var expandedSizeMenu by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(DarkSurface)
+            .border(1.dp, DarkBorder, RoundedCornerShape(14.dp))
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { expandedSizeMenu = true }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(text = "$pageSize / page", fontSize = 11.sp, color = AccentPurple, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.FilterList, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(14.dp))
+            }
+
+            DropdownMenu(
+                expanded = expandedSizeMenu,
+                onDismissRequest = { expandedSizeMenu = false },
+                modifier = Modifier.background(DarkSurface)
+            ) {
+                listOf(5, 10, 20, 50).forEach { size ->
+                    DropdownMenuItem(
+                        text = { Text("$size éléments par page", color = TextPrimary, fontSize = 12.sp) },
+                        onClick = {
+                            onPageSizeChange(size)
+                            expandedSizeMenu = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            IconButton(onClick = { onPageChange(1) }, enabled = currentPage > 1, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.FirstPage, contentDescription = "Première page", tint = if (currentPage > 1) AccentPurple else TextMuted.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
+            }
+
+            IconButton(onClick = { onPageChange(currentPage - 1) }, enabled = currentPage > 1, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Page précédente", tint = if (currentPage > 1) AccentPurple else TextMuted.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
+            }
+
+            Text(
+                text = "Page $currentPage / $totalPages",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary,
+                modifier = Modifier.padding(horizontal = 6.dp)
+            )
+
+            IconButton(onClick = { onPageChange(currentPage + 1) }, enabled = currentPage < totalPages, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Page suivante", tint = if (currentPage < totalPages) AccentPurple else TextMuted.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
+            }
+
+            IconButton(onClick = { onPageChange(totalPages) }, enabled = currentPage < totalPages, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.AutoMirrored.Filled.LastPage, contentDescription = "Dernière page", tint = if (currentPage < totalPages) AccentPurple else TextMuted.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun LogDetailsModal(
+    log: AutomationLogEntity,
+    onDismiss: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+    val scrollState = rememberScrollState()
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .fillMaxHeight(0.85f),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(DarkBorder))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(DeepPurple)
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "LOG #${log.id}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentPurple
+                            )
+                        }
+                        Text(
+                            text = log.status,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (log.status.contains("SUCCESS") || log.status.contains("RECEIVED")) AccentGreen else if (log.status.contains("ERROR") || log.status.contains("FAILED")) AccentError else TextSecondary
+                        )
+                    }
+
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Fermer", tint = TextMuted)
+                    }
+                }
+
+                HorizontalDivider(color = DarkBorder, modifier = Modifier.padding(vertical = 12.dp))
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(scrollState),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    DetailSection(title = "MESSAGE") {
+                        Text(
+                            text = log.message,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                    }
+
+                    DetailSection(title = "MÉTADONNÉES") {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            MetaRow(label = "Date & Heure", value = AutomationLogRepository.formatFullDateTime(log.timestamp))
+                            MetaRow(label = "Composant Tag", value = log.tag)
+                            MetaRow(label = "Type d'événement", value = log.type)
+                            if (log.source != null) {
+                                MetaRow(label = "Source / Numéro", value = log.source)
+                            }
+                            if (log.httpCode != null) {
+                                MetaRow(label = "Code HTTP", value = log.httpCode.toString())
+                            }
+                        }
+                    }
+
+                    if (!log.details.isNullOrBlank()) {
+                        var logDetailsViewMode by remember { mutableIntStateOf(0) }
+                        DetailSection(title = "DÉTAILS COMPLETS & RÉPONSE DU SERVEUR") {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = DarkBg,
+                                border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(DarkBorder))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(text = "Détails / Debug Retour Serveur", fontSize = 10.sp, color = TextMuted)
+                                        TextButton(
+                                            onClick = {
+                                                clipboardManager.setText(AnnotatedString(log.details))
+                                                Toast.makeText(context, "Détails copiés dans le presse-papier", Toast.LENGTH_SHORT).show()
+                                            }
+                                        ) {
+                                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp), tint = AccentPurple)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Copier", fontSize = 11.sp, color = AccentPurple)
+                                        }
+                                    }
+
+                                    // Sélecteur 3 modes d'affichage : Pretty JSON, Code Brut, WebView
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(DarkSurface)
+                                            .padding(3.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(if (logDetailsViewMode == 0) DeepPurple else Color.Transparent)
+                                                .clickable { logDetailsViewMode = 0 }
+                                                .padding(vertical = 5.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                                Icon(Icons.Default.Layers, contentDescription = null, modifier = Modifier.size(11.dp), tint = if (logDetailsViewMode == 0) AccentPurple else TextMuted)
+                                                Text("✨ Pretty JSON", fontSize = 10.sp, fontWeight = if (logDetailsViewMode == 0) FontWeight.Bold else FontWeight.Normal, color = if (logDetailsViewMode == 0) TextPrimary else TextMuted)
+                                            }
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(if (logDetailsViewMode == 1) DeepPurple else Color.Transparent)
+                                                .clickable { logDetailsViewMode = 1 }
+                                                .padding(vertical = 5.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                                Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(11.dp), tint = if (logDetailsViewMode == 1) AccentPurple else TextMuted)
+                                                Text("Code Brut", fontSize = 10.sp, fontWeight = if (logDetailsViewMode == 1) FontWeight.Bold else FontWeight.Normal, color = if (logDetailsViewMode == 1) TextPrimary else TextMuted)
+                                            }
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(if (logDetailsViewMode == 2) DeepPurple else Color.Transparent)
+                                                .clickable { logDetailsViewMode = 2 }
+                                                .padding(vertical = 5.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                                Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(11.dp), tint = if (logDetailsViewMode == 2) AccentPurple else TextMuted)
+                                                Text("WebView", fontSize = 10.sp, fontWeight = if (logDetailsViewMode == 2) FontWeight.Bold else FontWeight.Normal, color = if (logDetailsViewMode == 2) TextPrimary else TextMuted)
+                                            }
+                                        }
+                                    }
+
+                                    when (logDetailsViewMode) {
+                                        0 -> {
+                                            PrettyJsonViewer(
+                                                jsonString = log.details,
+                                                title = "Données JSON Serveur",
+                                                badgeText = "RÉPONSE SERVEUR",
+                                                defaultViewMode = 0
+                                            )
+                                        }
+                                        1 -> {
+                                            Text(
+                                                text = if (log.details.isNotBlank()) log.details else "(Corps de réponse vide)",
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 11.sp,
+                                                color = TextSecondary,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(DarkBg)
+                                                    .padding(8.dp)
+                                            )
+                                        }
+                                        2 -> {
+                                            ServerResponseWebView(
+                                                content = log.details,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .heightIn(min = 160.dp, max = 320.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(DarkSurface)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (!log.payloadJson.isNullOrBlank()) {
+                        DetailSection(title = "PAYLOAD JSON TRANSMIS (PRETTY VIEW)") {
+                            PrettyJsonViewer(
+                                jsonString = log.payloadJson,
+                                title = "Document Appwrite Transmis",
+                                badgeText = "PAYLOAD JSON",
+                                defaultViewMode = 0
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = DarkBorder, modifier = Modifier.padding(vertical = 12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onDelete,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentError),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Supprimer")
+                    }
+
+                    Button(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = DeepPurple, contentColor = AccentPurple)
+                    ) {
+                        Text("Fermer")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DetailSection(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = title,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            color = AccentPurple.copy(alpha = 0.8f),
+            letterSpacing = 0.5.sp
+        )
+        content()
+    }
+}
+
+@Composable
+fun MetaRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(text = label, fontSize = 12.sp, color = TextMuted)
+        Text(text = value, fontSize = 12.sp, color = TextPrimary, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+fun FilterBadgeChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) DeepPurple else DarkSurface)
+            .border(1.dp, if (selected) AccentPurple else DarkBorder, RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            color = if (selected) AccentPurple else TextSecondary
+        )
+    }
+}
+
+/**
+ * Navigation Bar avec 4 onglets : Dashboard, Modèles & Regex, File d'attente (Queue), Historique Room DB
+ */
+@Composable
+fun SophisticatedNavBar(
+    selectedTab: Int,
+    onTabSelect: (Int) -> Unit,
+    logCount: Int,
+    pendingQueueCount: Int
+) {
+    NavigationBar(
+        containerColor = DarkBg,
+        contentColor = AccentPurple,
+        tonalElevation = 0.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = DarkBorder,
+                shape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp)
+            )
+    ) {
+        NavigationBarItem(
+            selected = selectedTab == 0,
+            onClick = { onTabSelect(0) },
+            icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") },
+            label = {
+                Text(
+                    text = "DASHBOARD",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+            },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = DeepPurple,
+                selectedTextColor = AccentPurple,
+                indicatorColor = AccentPurple,
+                unselectedIconColor = TextMuted.copy(alpha = 0.5f),
+                unselectedTextColor = TextMuted.copy(alpha = 0.5f)
+            )
+        )
+
+        NavigationBarItem(
+            selected = selectedTab == 1,
+            onClick = { onTabSelect(1) },
+            icon = { Icon(Icons.Default.Layers, contentDescription = "Règles & Modèles") },
+            label = {
+                Text(
+                    text = "MODÈLES",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+            },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = DeepPurple,
+                selectedTextColor = AccentPurple,
+                indicatorColor = AccentPurple,
+                unselectedIconColor = TextMuted.copy(alpha = 0.5f),
+                unselectedTextColor = TextMuted.copy(alpha = 0.5f)
+            )
+        )
+
+        NavigationBarItem(
+            selected = selectedTab == 2,
+            onClick = { onTabSelect(2) },
+            icon = {
+                if (pendingQueueCount > 0) {
+                    BadgedBox(badge = {
+                        Badge(containerColor = AccentError, contentColor = Color.White) {
+                            Text("$pendingQueueCount", fontSize = 9.sp)
+                        }
+                    }) {
+                        Icon(Icons.Default.Queue, contentDescription = "Queue")
+                    }
+                } else {
+                    Icon(Icons.Default.Queue, contentDescription = "Queue")
+                }
+            },
+            label = {
+                Text(
+                    text = if (pendingQueueCount > 0) "QUEUE ($pendingQueueCount)" else "QUEUE",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp,
+                    color = if (pendingQueueCount > 0) AccentError else AccentPurple
+                )
+            },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = DeepPurple,
+                selectedTextColor = AccentPurple,
+                indicatorColor = AccentPurple,
+                unselectedIconColor = TextMuted.copy(alpha = 0.5f),
+                unselectedTextColor = TextMuted.copy(alpha = 0.5f)
+            )
+        )
+
+        NavigationBarItem(
+            selected = selectedTab == 3,
+            onClick = { onTabSelect(3) },
+            icon = {
+                if (logCount > 0) {
+                    BadgedBox(badge = {
+                        Badge(containerColor = DeepPurple, contentColor = AccentPurple) {
+                            Text(if (logCount > 99) "99+" else "$logCount", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }) {
+                        Icon(Icons.Default.Storage, contentDescription = "Historique DB")
+                    }
+                } else {
+                    Icon(Icons.Default.Storage, contentDescription = "Historique DB")
+                }
+            },
+            label = {
+                Text(
+                    text = if (logCount > 0) "HISTORIQUE ($logCount)" else "HISTORIQUE",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+            },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = DeepPurple,
+                selectedTextColor = AccentPurple,
+                indicatorColor = AccentPurple,
+                unselectedIconColor = TextMuted.copy(alpha = 0.5f),
+                unselectedTextColor = TextMuted.copy(alpha = 0.5f)
+            )
+        )
+    }
+}
+
+@Composable
+fun SophisticatedArchitectureDialog(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DarkSurface,
+        titleContentColor = TextPrimary,
+        textContentColor = TextSecondary,
+        title = {
+            Text(
+                text = "EduAutomate Architecture Guide",
+                fontWeight = FontWeight.Bold,
+                color = AccentPurple
+            )
+        },
+        text = {
+            val scrollState = rememberScrollState()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "1. File d'attente (Queue) & Retry Automatique",
+                    fontWeight = FontWeight.Bold,
+                    color = AccentPurple
+                )
+                Text(
+                    text = "• En cas d'erreur 500 (Appwrite/Serveur) ou d'absence de réseau, aucun SMS n'est perdu : il est placé dans la table 'sms_queue' de Room.\n" +
+                           "• Dès que la connexion Internet est rétablie (NetworkCallback), le Retry automatique se déclenche.\n" +
+                           "• Possibilité de déclencher le Retry manuellement depuis l'onglet 'QUEUE'.",
+                    fontSize = 12.sp,
+                    color = TextSecondary
+                )
+
+                HorizontalDivider(color = DarkBorder)
+
+                Text(
+                    text = "2. En-tête HTTP de Sécurité (Header)",
+                    fontWeight = FontWeight.Bold,
+                    color = AccentPurple
+                )
+                Text(
+                    text = "• Ajoutez vos clés de sécurité personnalisées (ex: 'X-SMS-Gateway-Token: MonSuperSecret123!' ou 'Authorization: Bearer ...') directement injectées dans chaque requête HTTP.",
+                    fontSize = 12.sp,
+                    color = TextSecondary
+                )
+
+                HorizontalDivider(color = DarkBorder)
+
+                Text(
+                    text = "3. Modèles Regex Groupés par Cases à Cocher",
+                    fontWeight = FontWeight.Bold,
+                    color = AccentPurple
+                )
+                Text(
+                    text = "• Cochez les modèles voulus pour extraire simultanément tous vos champs dans 'extracted_items'.\n" +
+                           "• Le SMS source complet ('original_sms') et l'expéditeur ('source') sont toujours garantis.",
+                    fontSize = 12.sp,
+                    color = TextSecondary
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = DeepPurple,
+                    contentColor = AccentPurple
+                )
+            ) {
+                Text("Fermer")
+            }
+        }
+    )
+}
+
+/**
+ * Composant WebView interactif pour inspecter visuellement
+ * le rendu HTML ou texte/JSON complet renvoyé par le serveur.
+ */
+@Composable
+fun ServerResponseWebView(
+    content: String,
+    modifier: Modifier = Modifier
+) {
+    AndroidView(
+        modifier = modifier,
+        factory = { ctx ->
+            WebView(ctx).apply {
+                setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
+                webViewClient = WebViewClient()
+                settings.javaScriptEnabled = false
+                settings.loadWithOverviewMode = true
+                settings.useWideViewPort = true
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            }
+        },
+        update = { webView ->
+            val isHtml = content.trim().startsWith("<") && (
+                content.contains("<html", ignoreCase = true) ||
+                content.contains("<body", ignoreCase = true) ||
+                content.contains("<!DOCTYPE", ignoreCase = true) ||
+                content.contains("<div", ignoreCase = true)
+            )
+            val htmlData = if (isHtml) {
+                content
+            } else {
+                """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                        body {
+                            background-color: #0E1118;
+                            color: #00E676;
+                            font-family: 'Courier New', Courier, monospace;
+                            font-size: 12px;
+                            padding: 12px;
+                            margin: 0;
+                            word-break: break-all;
+                            white-space: pre-wrap;
+                        }
+                        .header {
+                            color: #C084FC;
+                            font-weight: bold;
+                            margin-bottom: 8px;
+                            font-size: 13px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">&#128225; Rendu WebView - Retour Serveur :</div>
+                    <div>${android.text.TextUtils.htmlEncode(content)}</div>
+                </body>
+                </html>
+                """.trimIndent()
+            }
+            webView.loadDataWithBaseURL(null, htmlData, "text/html", "UTF-8", null)
+        }
+    )
+}
+
