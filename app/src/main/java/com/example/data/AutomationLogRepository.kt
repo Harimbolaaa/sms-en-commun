@@ -21,6 +21,7 @@ import java.util.Locale
 object AutomationLogRepository {
 
     private var logDao: AutomationLogDao? = null
+    private var appContext: Context? = null
     private val scope = CoroutineScope(Dispatchers.IO)
 
     private val _serviceRunning = MutableStateFlow(false)
@@ -36,9 +37,36 @@ object AutomationLogRepository {
     private val timeOnlyFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
     fun init(context: Context) {
+        appContext = context.applicationContext
         if (logDao == null) {
             val db = AppDatabase.getDatabase(context)
             logDao = db.logDao()
+        }
+    }
+
+    /**
+     * Retourne le flux réactif des logs filtré par utilisateur :
+     * - Pour l'administrateur : accès à la totalité des logs de tous les clients.
+     * - Pour un utilisateur client : accès STRICTEMENT à ses propres logs / SMS reçus.
+     */
+    fun getLogsForUser(userPhone: String, isAdmin: Boolean): Flow<List<AutomationLogEntity>> {
+        val dao = logDao ?: return MutableStateFlow(emptyList())
+        return if (isAdmin || userPhone.isBlank()) {
+            dao.getAllLogs()
+        } else {
+            dao.getLogsByUserPhone(userPhone)
+        }
+    }
+
+    /**
+     * Nombre de logs pour un utilisateur donné ou total pour l'administrateur.
+     */
+    fun getLogsCountForUser(userPhone: String, isAdmin: Boolean): Flow<Int> {
+        val dao = logDao ?: return MutableStateFlow(0)
+        return if (isAdmin || userPhone.isBlank()) {
+            dao.getLogsCount()
+        } else {
+            dao.getLogsCountByUserPhone(userPhone)
         }
     }
 
@@ -63,6 +91,7 @@ object AutomationLogRepository {
 
     /**
      * Enregistre un événement dans la base de données locale Room de façon asynchrone.
+     * Associe automatiquement l'identité du compte client connecté.
      */
     fun log(
         tag: String,
@@ -71,7 +100,9 @@ object AutomationLogRepository {
         details: String? = null,
         payloadJson: String? = null,
         httpCode: Int? = null,
-        source: String? = null
+        source: String? = null,
+        userPhone: String? = null,
+        userId: String? = null
     ) {
         val statusStr = when (type) {
             LogType.HTTP_SUCCESS -> "SUCCESS (200)"
@@ -88,6 +119,15 @@ object AutomationLogRepository {
             else -> null
         }
 
+        val effectiveUserPhone = userPhone ?: appContext?.let {
+            val p = AutomationPreferences(it)
+            if (p.isLoggedIn) p.loggedInUserPhone else null
+        }
+        val effectiveUserId = userId ?: appContext?.let {
+            val p = AutomationPreferences(it)
+            if (p.isLoggedIn) p.loggedInUserId else null
+        }
+
         val entity = AutomationLogEntity(
             timestamp = System.currentTimeMillis(),
             tag = tag,
@@ -97,7 +137,9 @@ object AutomationLogRepository {
             payloadJson = payloadJson,
             httpCode = httpCode,
             source = extractedSource,
-            status = statusStr
+            status = statusStr,
+            userPhone = effectiveUserPhone,
+            userId = effectiveUserId
         )
 
         if (payloadJson != null) {

@@ -44,43 +44,50 @@ data class HttpHeaderItem(
             HttpHeaderItem(
                 id = "preset_appwrite_project",
                 name = "X-Appwrite-Project",
-                value = "6a21910a00047c04e5af",
+                value = "6a22c323001a2537c74e",
                 isEnabled = true,
                 description = "Identifiant de projet Appwrite Cloud"
             ),
             HttpHeaderItem(
                 id = "preset_appwrite_key",
                 name = "X-Appwrite-Key",
-                value = "",
+                value = "standard_45db327f59e4d9c86616d4eb92bde54e04bc5175e909d5ac318909357a2e6c26cc72686fa02c562d358c723b37199a29f6e47363e7a139ea5eac2aa4f995f1c8d60fef613c89cdcd7b2d491d966d4d4f0fad1238a2b8c5eb5ba85306f7460fe60d3e9b03a9609a354dff899f495676b06fe31860b3f56731a4c30dee9bdd20aa",
                 isEnabled = true,
                 description = "Clé secrète API Appwrite (Droits complets)"
+            ),
+            HttpHeaderItem(
+                id = "preset_content_type",
+                name = "Content-Type",
+                value = "application/json",
+                isEnabled = true,
+                description = "Type de contenu JSON"
             ),
             HttpHeaderItem(
                 id = "preset_appwrite_jwt",
                 name = "X-Appwrite-JWT",
                 value = "",
-                isEnabled = true,
+                isEnabled = false,
                 description = "Token JWT utilisateur Appwrite"
             ),
             HttpHeaderItem(
                 id = "preset_bearer",
                 name = "Authorization",
                 value = "Bearer ",
-                isEnabled = true,
+                isEnabled = false,
                 description = "Authentification standard Bearer Token"
             ),
             HttpHeaderItem(
                 id = "preset_api_key",
                 name = "X-API-Key",
                 value = "",
-                isEnabled = true,
+                isEnabled = false,
                 description = "Clé d'API personnalisée"
             ),
             HttpHeaderItem(
                 id = "preset_gateway_token",
                 name = "X-SMS-Gateway-Token",
                 value = "",
-                isEnabled = true,
+                isEnabled = false,
                 description = "Token secret de sécurité passerelle SMS"
             )
         )

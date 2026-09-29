@@ -94,6 +94,25 @@ class SmsAutomationReceiver : android.content.BroadcastReceiver() {
         }
 
         val prefs = AutomationPreferences(context)
+        val isUserLoggedIn = prefs.isLoggedIn
+        val loggedInUserPhone = prefs.loggedInUserPhone
+        val loggedInUserId = prefs.loggedInUserId
+
+        // RÈGLE STRICTE PASSERELLE SMS :
+        // Si et seulement si un compte utilisateur client est connecté sur cet appareil,
+        // la passerelle SMS (SMS Gateway) a le droit d'effectuer les actions.
+        if (!isUserLoggedIn || loggedInUserPhone.isBlank()) {
+            Log.w(TAG, "Passerelle SMS bloquée : aucun compte utilisateur connecté sur cet appareil.")
+            AutomationLogRepository.log(
+                tag = "GATEWAY_AUTH",
+                message = "Passerelle SMS bloquée : aucun compte connecté",
+                type = LogType.INFO,
+                details = "L'action SMS Gateway nécessite qu'un compte utilisateur client soit authentifié sur cet appareil.",
+                source = "AUTH_GATEWAY"
+            )
+            return
+        }
+
         val targetUrl = prefs.targetUrl
         val isAutoForwardEnabled = prefs.isAutoForwardEnabled
         val isSenderFilterEnabled = prefs.isSenderFilterEnabled
@@ -112,7 +131,7 @@ class SmsAutomationReceiver : android.content.BroadcastReceiver() {
 
         messagesBySender.forEach { (sender, bodyBuilder) ->
             val fullBody = bodyBuilder.toString()
-            Log.i(TAG, "SMS Intercepté de [$sender]: $fullBody")
+            Log.i(TAG, "SMS Intercepté de [$sender] pour le client [$loggedInUserPhone]: $fullBody")
 
             // 1. Vérification de la règle de filtrage d'expéditeur
             val isAllowed = ExtractionEngine.isSenderAllowed(sender, allowedSenders, isSenderFilterEnabled)
@@ -123,7 +142,9 @@ class SmsAutomationReceiver : android.content.BroadcastReceiver() {
                     message = "SMS ignoré (Expéditeur '$sender' non autorisé)",
                     type = LogType.INFO,
                     details = "Expéditeur: $sender\nListe autorisée: $allowedSenders\nMessage non transmis à l'API.",
-                    source = sender
+                    source = sender,
+                    userPhone = loggedInUserPhone,
+                    userId = loggedInUserId
                 )
                 return@forEach
             }
@@ -139,7 +160,9 @@ class SmsAutomationReceiver : android.content.BroadcastReceiver() {
                 source = sender,
                 originalContent = fullBody,
                 extractionResult = extractionResult,
-                sendOnlyExtracted = sendOnlyExtracted
+                sendOnlyExtracted = sendOnlyExtracted,
+                clientPhone = loggedInUserPhone,
+                clientUserId = loggedInUserId
             )
 
             // Journalisation de l'événement avec détails d'extraction
@@ -157,9 +180,11 @@ class SmsAutomationReceiver : android.content.BroadcastReceiver() {
                 tag = "SMS_RECEIVER",
                 message = "SMS de $sender ($extractedSummary)",
                 type = LogType.SMS_INTERCEPTED,
-                details = "Émetteur: $sender\nSMS source: $fullBody\nModèles actifs: ${checkedRules.joinToString { it.title }.ifEmpty { "Modèle unique" }}\nDonnées extraites: ${if (isRegexEnabled) extractionResult.allExtractedValues.joinToString(", ").ifEmpty { "Aucune" } else "Désactivé"}\nFormat: ${format ?: "Standard"}",
+                details = "Émetteur: $sender\nCompte Passerelle: $loggedInUserPhone\nSMS source: $fullBody\nModèles actifs: ${checkedRules.joinToString { it.title }.ifEmpty { "Modèle unique" }}\nDonnées extraites: ${if (isRegexEnabled) extractionResult.allExtractedValues.joinToString(", ").ifEmpty { "Aucune" } else "Désactivé"}\nFormat: ${format ?: "Standard"}",
                 payloadJson = finalPayload,
-                source = sender
+                source = sender,
+                userPhone = loggedInUserPhone,
+                userId = loggedInUserId
             )
 
             // Transmission au Foreground Service pour maintenir la persistance
@@ -189,7 +214,9 @@ class SmsAutomationReceiver : android.content.BroadcastReceiver() {
                     contentLength = fullBody.length,
                     headers = activeHeaders,
                     headerName = customHeaderName,
-                    headerValue = customHeaderValue
+                    headerValue = customHeaderValue,
+                    userPhone = loggedInUserPhone,
+                    userId = loggedInUserId
                 )
             }
         }

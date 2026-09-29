@@ -1,0 +1,26 @@
+{
+  "name": "applet",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "appwrite": "appwrite",
+    "init:appwrite": "node scripts/init-appwrite.js",
+    "test:sync": "node scripts/test-appwrite-sync.js",
+    "user:create": "node scripts/create-user.js",
+    "user:list": "node scripts/list-users.js",
+    "mcp": "appwrite-mcp-server"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "appwrite-mcp-server": "^1.0.1",
+    "node-appwrite": "^29.0.0"
+  },
+  "devDependencies": {
+    "appwrite-cli": "^27.3.0"
+  }
+}

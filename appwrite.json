@@ -1,0 +1,130 @@
+{
+  "projectId": "6a22c323001a2537c74e",
+  "projectName": "smsAppelCommun",
+  "endpoint": "https://fra.cloud.appwrite.io/v1",
+  "databases": [
+    {
+      "$id": "6aa39c2a0008d6d8e8e4",
+      "name": "smsAppelCommun",
+      "enabled": true
+    }
+  ],
+  "collections": [
+    {
+      "$id": "sms_logs",
+      "$permissions": [
+        "read(\"any\")",
+        "create(\"any\")",
+        "update(\"any\")",
+        "delete(\"any\")"
+      ],
+      "databaseId": "6aa39c2a0008d6d8e8e4",
+      "name": "sms_logs",
+      "enabled": true,
+      "documentSecurity": false,
+      "attributes": [
+        {
+          "key": "sender",
+          "type": "string",
+          "status": "available",
+          "required": false,
+          "array": false,
+          "size": 255
+        },
+        {
+          "key": "rawMessage",
+          "type": "string",
+          "status": "available",
+          "required": false,
+          "array": false,
+          "size": 10000
+        },
+        {
+          "key": "referenceId",
+          "type": "string",
+          "status": "available",
+          "required": false,
+          "array": false,
+          "size": 255
+        },
+        {
+          "key": "operator",
+          "type": "string",
+          "status": "available",
+          "required": false,
+          "array": false,
+          "size": 255
+        },
+        {
+          "key": "parsedAmount",
+          "type": "integer",
+          "status": "available",
+          "required": false,
+          "array": false
+        },
+        {
+          "key": "createdAtUnix",
+          "type": "integer",
+          "status": "available",
+          "required": false,
+          "array": false
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "$id": "user_dialer_codes",
+      "$permissions": [
+        "read(\"any\")",
+        "create(\"any\")",
+        "update(\"any\")",
+        "delete(\"any\")"
+      ],
+      "databaseId": "6aa39c2a0008d6d8e8e4",
+      "name": "user_dialer_codes",
+      "enabled": true,
+      "documentSecurity": false,
+      "attributes": [
+        {
+          "key": "userPhone",
+          "type": "string",
+          "status": "available",
+          "required": false,
+          "array": false,
+          "size": 64
+        },
+        {
+          "key": "secretCode",
+          "type": "string",
+          "status": "available",
+          "required": false,
+          "array": false,
+          "size": 16
+        },
+        {
+          "key": "isCustomized",
+          "type": "boolean",
+          "status": "available",
+          "required": false,
+          "array": false
+        },
+        {
+          "key": "userId",
+          "type": "string",
+          "status": "available",
+          "required": false,
+          "array": false,
+          "size": 128
+        },
+        {
+          "key": "updatedAt",
+          "type": "integer",
+          "status": "available",
+          "required": false,
+          "array": false
+        }
+      ],
+      "indexes": []
+    }
+  ]
+}

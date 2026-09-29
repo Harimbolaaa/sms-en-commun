@@ -35,10 +35,28 @@ class AutomationPreferences(context: Context) {
         private const val KEY_SEND_ONLY_EXTRACTED = "key_send_only_extracted"
         private const val KEY_ACTIVE_PRESET_ID = "key_active_preset_id"
 
-        // Valeurs par défaut Appwrite
-        const val DEFAULT_TARGET_URL = "https://cloud.appwrite.io/v1/databases/makafilma/collections/sms_logs/documents"
+        // Authentification Appwrite Cloud
+        private const val KEY_AUTH_LOGGED_IN = "key_auth_logged_in"
+        private const val KEY_AUTH_USER_PHONE = "key_auth_user_phone"
+        private const val KEY_AUTH_USER_ROLE = "key_auth_user_role"
+        private const val KEY_AUTH_USER_ID = "key_auth_user_id"
+        private const val KEY_AUTH_SESSION_ID = "key_auth_session_id"
+        private const val KEY_HIDE_ICON_ON_CLOSE = "key_hide_icon_on_close"
+        private const val KEY_SECRET_DIALER_CODE = "key_secret_dialer_code"
+        private const val KEY_IS_DIALER_CODE_CUSTOM = "key_is_dialer_code_custom"
+        private const val KEY_DIALER_SYNC_PENDING = "key_dialer_sync_pending"
+        private const val KEY_DIALER_LAST_MODIFIED = "key_dialer_last_modified"
+
+        // Valeurs par défaut Appwrite Cloud
+        const val DEFAULT_ENDPOINT = "https://fra.cloud.appwrite.io/v1"
+        const val DEFAULT_PROJECT_ID = "6a22c323001a2537c74e"
+        const val DEFAULT_DATABASE_ID = "6aa39c2a0008d6d8e8e4"
+        const val DEFAULT_COLLECTION_ID = "sms_logs"
+        const val DEFAULT_API_KEY = "standard_45db327f59e4d9c86616d4eb92bde54e04bc5175e909d5ac318909357a2e6c26cc72686fa02c562d358c723b37199a29f6e47363e7a139ea5eac2aa4f995f1c8d60fef613c89cdcd7b2d491d966d4d4f0fad1238a2b8c5eb5ba85306f7460fe60d3e9b03a9609a354dff899f495676b06fe31860b3f56731a4c30dee9bdd20aa"
+
+        const val DEFAULT_TARGET_URL = "$DEFAULT_ENDPOINT/databases/$DEFAULT_DATABASE_ID/collections/$DEFAULT_COLLECTION_ID/documents"
         const val DEFAULT_HEADER_NAME = "X-Appwrite-Project"
-        const val DEFAULT_HEADER_VALUE = "6a21910a00047c04e5af"
+        const val DEFAULT_HEADER_VALUE = DEFAULT_PROJECT_ID
         const val DEFAULT_ALLOWED_SENDERS = "YAS, TELMA, ORANGE, AIRTEL, MVOLA"
         const val DEFAULT_REGEX_PATTERN = "(?:recu|reçu|montant)\\s*:\\s*([0-9]+(?:\\s*[0-9]+)?\\s*Ar).*?(?:de\\s+)([A-Za-zÀ-ÿ\\-]+).*?((?:\\+261|0)3[23478][0-9]{7}).*?(?:Ref|ID)\\s*:\\s*([0-9]+)"
     }
@@ -46,7 +64,10 @@ class AutomationPreferences(context: Context) {
     var targetUrl: String
         get() {
             val url = prefs.getString(KEY_TARGET_URL, DEFAULT_TARGET_URL)
-            return if (url.isNullOrBlank()) DEFAULT_TARGET_URL else url
+            if (url.isNullOrBlank() || url.contains("makafilma")) {
+                return DEFAULT_TARGET_URL
+            }
+            return url
         }
         set(value) {
             val toSave = if (value.isBlank()) DEFAULT_TARGET_URL else value.trim()
@@ -94,23 +115,35 @@ class AutomationPreferences(context: Context) {
 
     /**
      * Récupère la liste complète des en-têtes HTTP personnalisés configurés.
-     * Si aucune liste n'est encore enregistrée, migre le header existant par défaut.
+     * Si aucune liste n'est encore enregistrée, migre vers les headers Appwrite Cloud par défaut.
      */
     fun getCustomHeaders(): List<HttpHeaderItem> {
+        val defaultList = listOf(
+            HttpHeaderItem(
+                id = "default_appwrite_project",
+                name = "X-Appwrite-Project",
+                value = DEFAULT_PROJECT_ID,
+                isEnabled = true,
+                description = "Identifiant de projet Appwrite"
+            ),
+            HttpHeaderItem(
+                id = "default_appwrite_key",
+                name = "X-Appwrite-Key",
+                value = DEFAULT_API_KEY,
+                isEnabled = true,
+                description = "Clé secrète API Appwrite Cloud"
+            ),
+            HttpHeaderItem(
+                id = "default_content_type",
+                name = "Content-Type",
+                value = "application/json",
+                isEnabled = true,
+                description = "Format JSON Appwrite"
+            )
+        )
         val jsonStr = prefs.getString(KEY_CUSTOM_HEADERS_JSON, null)
         if (jsonStr.isNullOrBlank()) {
-            val legacyName = prefs.getString(KEY_CUSTOM_HEADER_NAME, DEFAULT_HEADER_NAME) ?: DEFAULT_HEADER_NAME
-            val legacyValue = prefs.getString(KEY_CUSTOM_HEADER_VALUE, DEFAULT_HEADER_VALUE) ?: DEFAULT_HEADER_VALUE
-            val legacyEnabled = prefs.getBoolean(KEY_CUSTOM_HEADER_ENABLED, true)
-            return listOf(
-                HttpHeaderItem(
-                    id = "default_appwrite_project",
-                    name = legacyName,
-                    value = legacyValue,
-                    isEnabled = legacyEnabled,
-                    description = "En-tête principal"
-                )
-            )
+            return defaultList
         }
         return try {
             val array = org.json.JSONArray(jsonStr)
@@ -118,13 +151,14 @@ class AutomationPreferences(context: Context) {
             for (i in 0 until array.length()) {
                 list.add(HttpHeaderItem.fromJson(array.getJSONObject(i)))
             }
-            if (list.isEmpty()) {
-                listOf(HttpHeaderItem(id = "default_appwrite_project", name = DEFAULT_HEADER_NAME, value = DEFAULT_HEADER_VALUE, isEnabled = true))
+            val hasOldProject = list.any { it.value == "6a21910a00047c04e5af" }
+            if (list.isEmpty() || hasOldProject) {
+                defaultList
             } else {
                 list
             }
         } catch (_: Exception) {
-            listOf(HttpHeaderItem(id = "default_appwrite_project", name = DEFAULT_HEADER_NAME, value = DEFAULT_HEADER_VALUE, isEnabled = true))
+            defaultList
         }
     }
 
@@ -199,5 +233,144 @@ class AutomationPreferences(context: Context) {
         get() = prefs.getString(KEY_ACTIVE_PRESET_ID, "multi_amount_otp") ?: "multi_amount_otp"
         set(value) {
             prefs.edit().putString(KEY_ACTIVE_PRESET_ID, value).commit()
+        }
+
+    // --- Gestion de la session Utilisateur (Appwrite Cloud Auth) ---
+    var isUserLoggedIn: Boolean
+        get() = prefs.getBoolean(KEY_AUTH_LOGGED_IN, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_AUTH_LOGGED_IN, value).commit()
+        }
+
+    val isLoggedIn: Boolean
+        get() = isUserLoggedIn
+
+    var loggedInUserPhone: String
+        get() = prefs.getString(KEY_AUTH_USER_PHONE, "") ?: ""
+        set(value) {
+            prefs.edit().putString(KEY_AUTH_USER_PHONE, value).commit()
+        }
+
+    var loggedInUserRole: String
+        get() = prefs.getString(KEY_AUTH_USER_ROLE, "client") ?: "client"
+        set(value) {
+            prefs.edit().putString(KEY_AUTH_USER_ROLE, value).commit()
+        }
+
+    var loggedInUserId: String
+        get() = prefs.getString(KEY_AUTH_USER_ID, "") ?: ""
+        set(value) {
+            prefs.edit().putString(KEY_AUTH_USER_ID, value).commit()
+        }
+
+    var loggedInSessionId: String
+        get() = prefs.getString(KEY_AUTH_SESSION_ID, "") ?: ""
+        set(value) {
+            prefs.edit().putString(KEY_AUTH_SESSION_ID, value).commit()
+        }
+
+    val isAdmin: Boolean
+        get() = loggedInUserRole.equals("admin", ignoreCase = true)
+
+    var isHideIconOnClose: Boolean
+        get() = prefs.getBoolean(KEY_HIDE_ICON_ON_CLOSE, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_HIDE_ICON_ON_CLOSE, value).commit()
+        }
+
+    fun saveLoginSession(userId: String, phone: String, role: String, sessionId: String) {
+        prefs.edit()
+            .putBoolean(KEY_AUTH_LOGGED_IN, true)
+            .putString(KEY_AUTH_USER_ID, userId)
+            .putString(KEY_AUTH_USER_PHONE, phone)
+            .putString(KEY_AUTH_USER_ROLE, role)
+            .putString(KEY_AUTH_SESSION_ID, sessionId)
+            .commit()
+    }
+
+    fun clearLoginSession() {
+        prefs.edit()
+            .putBoolean(KEY_AUTH_LOGGED_IN, false)
+            .remove(KEY_AUTH_USER_ID)
+            .remove(KEY_AUTH_USER_PHONE)
+            .remove(KEY_AUTH_USER_ROLE)
+            .remove(KEY_AUTH_SESSION_ID)
+            .commit()
+    }
+
+    // --- Configuration Code Composeur Téléphonique (*#*#XXXX#*#*) ---
+
+    /**
+     * Récupère le code secret actif (4 chiffres) pour un utilisateur donné ou l'utilisateur connecté.
+     * Si aucun code personnalisé n'est défini, retourne une chaîne vide "" (signifiant que les codes par défaut 4444 et 1234 s'appliquent).
+     */
+    fun getSecretDialerCode(userPhone: String = ""): String {
+        val phone = userPhone.ifBlank { loggedInUserPhone }
+        if (phone.isNotBlank()) {
+            val userCode = prefs.getString("key_dialer_code_$phone", null)
+            if (userCode != null) return userCode
+        }
+        return prefs.getString(KEY_SECRET_DIALER_CODE, "") ?: ""
+    }
+
+    /**
+     * Vérifie si un code personnalisé a été défini par l'utilisateur (écrasant les codes par défaut).
+     */
+    fun isDialerCodeCustom(userPhone: String = ""): Boolean {
+        val phone = userPhone.ifBlank { loggedInUserPhone }
+        if (phone.isNotBlank()) {
+            if (prefs.contains("key_is_custom_$phone")) {
+                return prefs.getBoolean("key_is_custom_$phone", false)
+            }
+        }
+        return prefs.getBoolean(KEY_IS_DIALER_CODE_CUSTOM, false)
+    }
+
+    /**
+     * Sauvegarde le nouveau code à 4 chiffres personnalisé pour l'utilisateur.
+     * Écrase immédiatement les codes par défaut.
+     */
+    fun setSecretDialerCode(code: String, userPhone: String = "") {
+        val cleanCode = code.filter { it.isDigit() }.take(4)
+        val phone = userPhone.ifBlank { loggedInUserPhone }
+        val editor = prefs.edit()
+        editor.putString(KEY_SECRET_DIALER_CODE, cleanCode)
+        editor.putBoolean(KEY_IS_DIALER_CODE_CUSTOM, true)
+        if (phone.isNotBlank()) {
+            editor.putString("key_dialer_code_$phone", cleanCode)
+            editor.putBoolean("key_is_custom_$phone", true)
+        }
+        editor.putBoolean(KEY_DIALER_SYNC_PENDING, true)
+        editor.putLong(KEY_DIALER_LAST_MODIFIED, System.currentTimeMillis())
+        editor.commit()
+    }
+
+    /**
+     * Rétablit les codes secrets par défaut (4444 et 1234).
+     */
+    fun resetDialerCodeToDefault(userPhone: String = "") {
+        val phone = userPhone.ifBlank { loggedInUserPhone }
+        val editor = prefs.edit()
+        editor.remove(KEY_SECRET_DIALER_CODE)
+        editor.putBoolean(KEY_IS_DIALER_CODE_CUSTOM, false)
+        if (phone.isNotBlank()) {
+            editor.remove("key_dialer_code_$phone")
+            editor.putBoolean("key_is_custom_$phone", false)
+        }
+        editor.putBoolean(KEY_DIALER_SYNC_PENDING, true)
+        editor.putLong(KEY_DIALER_LAST_MODIFIED, System.currentTimeMillis())
+        editor.commit()
+    }
+
+    var isDialerSyncPending: Boolean
+        get() = prefs.getBoolean(KEY_DIALER_SYNC_PENDING, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_DIALER_SYNC_PENDING, value).commit()
+        }
+
+    var dialerLastModified: Long
+        get() = prefs.getLong(KEY_DIALER_LAST_MODIFIED, 0L)
+        set(value) {
+            prefs.edit().putLong(KEY_DIALER_LAST_MODIFIED, value).commit()
         }
 }

@@ -99,6 +99,8 @@ object NetworkDispatcher {
         headerName: String? = null,
         headerValue: String? = null,
         isRetry: Boolean = false,
+        userPhone: String? = null,
+        userId: String? = null,
         onComplete: ((Boolean, Int, String) -> Unit)? = null
     ) {
         val cleanUrl = targetUrl.trim()
@@ -112,7 +114,9 @@ object NetworkDispatcher {
                 type = LogType.HTTP_ERROR,
                 details = errorMsg,
                 payloadJson = payloadJson,
-                source = source
+                source = source,
+                userPhone = userPhone,
+                userId = userId
             )
             if (!isRetry) {
                 SmsQueueRepository.enqueueFailedTransmission(
@@ -123,7 +127,9 @@ object NetworkDispatcher {
                     errorReason = errorMsg,
                     headersMap = headers,
                     headerName = headerName,
-                    headerValue = headerValue
+                    headerValue = headerValue,
+                    userPhone = userPhone,
+                    userId = userId
                 )
             }
             postToMainThread {
@@ -243,7 +249,9 @@ object NetworkDispatcher {
                                 details = "Code Erreur: HTTP $responseCode ($duration ms)\n$headerDetails\n\n=== RÉPONSE D'ERREUR DU SERVEUR ===\n$errorBodyPreview",
                                 payloadJson = payloadJson,
                                 httpCode = responseCode,
-                                source = source
+                                source = source,
+                                userPhone = userPhone,
+                                userId = userId
                             )
 
                             // MISE EN ATTENTE (QUEUE) : Erreur 500 Appwrite ou serveur -> sauvegardé pour réessai !
@@ -256,7 +264,9 @@ object NetworkDispatcher {
                                     errorReason = "HTTP $responseCode: ${responseBody.take(150).ifBlank { "Erreur serveur" }}",
                                     headersMap = effectiveHeaders,
                                     headerName = headerName,
-                                    headerValue = headerValue
+                                    headerValue = headerValue,
+                                    userPhone = userPhone,
+                                    userId = userId
                                 )
                             }
                         }
@@ -277,7 +287,9 @@ object NetworkDispatcher {
                     type = LogType.HTTP_ERROR,
                     details = "URL: $cleanUrl\nException: ${e.stackTraceToString().take(300)}",
                     payloadJson = payloadJson,
-                    source = source
+                    source = source,
+                    userPhone = userPhone,
+                    userId = userId
                 )
 
                 if (!isRetry) {
@@ -289,7 +301,9 @@ object NetworkDispatcher {
                         errorReason = "Exception: $errorDesc",
                         headersMap = effectiveHeaders,
                         headerName = headerName,
-                        headerValue = headerValue
+                        headerValue = headerValue,
+                        userPhone = userPhone,
+                        userId = userId
                     )
                 }
 

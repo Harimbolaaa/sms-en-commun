@@ -16,11 +16,20 @@ interface QueueItemDao {
     @Query("SELECT * FROM sms_queue ORDER BY timestamp DESC")
     fun getAllQueueItems(): Flow<List<QueueItemEntity>>
 
+    @Query("SELECT * FROM sms_queue WHERE userPhone = :phone OR (:phone != '' AND payloadJson LIKE '%' || :phone || '%') ORDER BY timestamp DESC")
+    fun getQueueItemsByUserPhone(phone: String): Flow<List<QueueItemEntity>>
+
     @Query("SELECT * FROM sms_queue WHERE status != 'SUCCESS' ORDER BY timestamp ASC")
     suspend fun getPendingQueueItemsSync(): List<QueueItemEntity>
 
+    @Query("SELECT * FROM sms_queue WHERE status != 'SUCCESS' AND (userPhone = :phone OR (:phone != '' AND payloadJson LIKE '%' || :phone || '%')) ORDER BY timestamp ASC")
+    suspend fun getPendingQueueItemsSyncByUserPhone(phone: String): List<QueueItemEntity>
+
     @Query("SELECT COUNT(*) FROM sms_queue WHERE status != 'SUCCESS'")
     fun getPendingCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM sms_queue WHERE status != 'SUCCESS' AND (userPhone = :phone OR (:phone != '' AND payloadJson LIKE '%' || :phone || '%'))")
+    fun getPendingCountByUserPhone(phone: String): Flow<Int>
 
     @Query("SELECT * FROM sms_queue WHERE id = :id LIMIT 1")
     suspend fun getItemById(id: Long): QueueItemEntity?

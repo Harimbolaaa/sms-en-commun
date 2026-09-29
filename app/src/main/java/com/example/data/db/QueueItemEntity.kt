@@ -23,5 +23,7 @@ data class QueueItemEntity(
     val lastAttemptTimestamp: Long = System.currentTimeMillis(),
     val headerName: String? = null,
     val headerValue: String? = null,
-    val headersJson: String? = null
+    val headersJson: String? = null,
+    val userPhone: String? = null,
+    val userId: String? = null
 )

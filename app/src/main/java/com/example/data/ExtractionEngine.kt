@@ -239,7 +239,9 @@ object ExtractionEngine {
         originalContent: String,
         extractionResult: ExtractionResult,
         sendOnlyExtracted: Boolean = false,
-        customFieldKey: String = "content"
+        customFieldKey: String = "content",
+        clientPhone: String? = null,
+        clientUserId: String? = null
     ): String {
         val root = JSONObject()
         val dataObj = JSONObject()
@@ -327,6 +329,12 @@ object ExtractionEngine {
         dataObj.put("referenceId", extractedRef ?: (extractedPhone ?: ""))
         dataObj.put("operator", detectedOperator)
         dataObj.put("createdAtUnix", timestamp)
+        if (!clientPhone.isNullOrBlank()) {
+            dataObj.put("clientPhone", clientPhone)
+        }
+        if (!clientUserId.isNullOrBlank()) {
+            dataObj.put("clientUserId", clientUserId)
+        }
 
         root.put("data", dataObj)
 

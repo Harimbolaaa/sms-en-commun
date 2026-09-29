@@ -17,6 +17,21 @@ interface AutomationLogDao {
 
     @Query("""
         SELECT * FROM automation_logs 
+        WHERE userPhone = :phone 
+           OR (:phone != '' AND (message LIKE '%' || :phone || '%' OR details LIKE '%' || :phone || '%' OR payloadJson LIKE '%' || :phone || '%'))
+        ORDER BY timestamp DESC
+    """)
+    fun getLogsByUserPhone(phone: String): Flow<List<AutomationLogEntity>>
+
+    @Query("""
+        SELECT COUNT(*) FROM automation_logs 
+        WHERE userPhone = :phone 
+           OR (:phone != '' AND (message LIKE '%' || :phone || '%' OR details LIKE '%' || :phone || '%' OR payloadJson LIKE '%' || :phone || '%'))
+    """)
+    fun getLogsCountByUserPhone(phone: String): Flow<Int>
+
+    @Query("""
+        SELECT * FROM automation_logs 
         WHERE message LIKE '%' || :query || '%' 
            OR tag LIKE '%' || :query || '%' 
            OR (details IS NOT NULL AND details LIKE '%' || :query || '%')

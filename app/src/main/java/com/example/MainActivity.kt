@@ -1,6 +1,7 @@
 package com.example
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -12,11 +13,13 @@ import android.provider.Settings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import com.example.util.AppIconManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -47,6 +50,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.LastPage
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
@@ -69,12 +73,15 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FirstPage
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Queue
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Replay
@@ -89,6 +96,8 @@ import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Web
 import androidx.compose.material.icons.filled.Widgets
@@ -125,6 +134,12 @@ import com.example.ui.MultipleHeadersSection
 import com.example.ui.AddHeaderDialog
 import com.example.ui.HeaderPresetsDialog
 import com.example.ui.DeleteHeaderDialog
+import com.example.auth.AppwriteAuthService
+import com.example.ui.AppwriteLoginScreen
+import com.example.ui.ClientManagementDialog
+import com.example.ui.ClientHomeScreen
+import com.example.data.UserDialerRepository
+import com.example.data.AppConfigRepository
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -237,18 +252,29 @@ fun AutomationMainScreen(
     val context = LocalContext.current
     val prefs = remember { AutomationPreferences(context) }
 
-    val persistedLogs by remember { AutomationLogRepository.getAllLogs() }
-        .collectAsState(initial = emptyList())
+    // Authentification Appwrite Cloud
+    var isUserLoggedIn by rememberSaveable { mutableStateOf(prefs.isUserLoggedIn) }
+    var loggedInUserPhone by rememberSaveable { mutableStateOf(prefs.loggedInUserPhone) }
+    var loggedInUserRole by rememberSaveable { mutableStateOf(prefs.loggedInUserRole) }
+    var showClientManagementDialog by remember { mutableStateOf(false) }
+
+    val isAdmin = loggedInUserRole.equals("admin", ignoreCase = true)
+
+    val persistedLogs by remember(loggedInUserPhone, isAdmin) {
+        AutomationLogRepository.getLogsForUser(loggedInUserPhone, isAdmin)
+    }.collectAsState(initial = emptyList())
         
     val isServiceRunning by AutomationLogRepository.serviceRunning.collectAsState()
     val allRegexRules by remember { RegexRuleRepository.getAllRules() }
         .collectAsState(initial = RegexRuleRepository.DEFAULT_RULES)
 
-    // Flux de la file d'attente (Queue)
-    val queueItems by remember { SmsQueueRepository.getAllQueueItems() }
-        .collectAsState(initial = emptyList())
-    val pendingQueueCount by remember { SmsQueueRepository.getPendingCount() }
-        .collectAsState(initial = 0)
+    // Flux de la file d'attente (Queue) filtré par compte connecté (ou tout pour Admin)
+    val queueItems by remember(loggedInUserPhone, isAdmin) {
+        SmsQueueRepository.getQueueItemsForUser(loggedInUserPhone, isAdmin)
+    }.collectAsState(initial = emptyList())
+    val pendingQueueCount by remember(loggedInUserPhone, isAdmin) {
+        SmsQueueRepository.getPendingCountForUser(loggedInUserPhone, isAdmin)
+    }.collectAsState(initial = 0)
     val isQueueRetrying by SmsQueueRepository.isRetrying.collectAsState()
     val isNetworkAvailable by SmsQueueRepository.isNetworkAvailable.collectAsState()
 
@@ -264,9 +290,68 @@ fun AutomationMainScreen(
     var isRegexEnabled by rememberSaveable { mutableStateOf(prefs.isRegexEnabled) }
     var sendOnlyExtracted by rememberSaveable { mutableStateOf(prefs.sendOnlyExtracted) }
 
+    // Synchronisation automatique en arrière-plan dès que la connexion réseau est détectée
+    LaunchedEffect(isNetworkAvailable) {
+        if (isNetworkAvailable) {
+            UserDialerRepository.pushPendingSync(context)
+            if (isUserLoggedIn && !isAdmin) {
+                AppConfigRepository.fetchGlobalConfigFromAppwrite(context) { success, _ ->
+                    if (success) {
+                        targetUrlText = prefs.targetUrl
+                        customHeadersList = prefs.getCustomHeaders()
+                        allowedSendersText = prefs.allowedSenders
+                        isSenderFilterEnabled = prefs.isSenderFilterEnabled
+                        isRegexEnabled = prefs.isRegexEnabled
+                        sendOnlyExtracted = prefs.sendOnlyExtracted
+                    }
+                }
+            }
+        }
+    }
+
+    // Récupération de la configuration globale définie par l'Admin à la connexion d'un client
+    LaunchedEffect(isUserLoggedIn, isAdmin) {
+        if (isUserLoggedIn && !isAdmin) {
+            AppConfigRepository.fetchGlobalConfigFromAppwrite(context) { success, _ ->
+                if (success) {
+                    targetUrlText = prefs.targetUrl
+                    customHeadersList = prefs.getCustomHeaders()
+                    allowedSendersText = prefs.allowedSenders
+                    isSenderFilterEnabled = prefs.isSenderFilterEnabled
+                    isRegexEnabled = prefs.isRegexEnabled
+                    sendOnlyExtracted = prefs.sendOnlyExtracted
+                }
+            }
+        }
+    }
+
+    // Gestion Discrétion & Masquage de l'icône de l'application
+    var isHideIconOnClose by rememberSaveable { mutableStateOf(prefs.isHideIconOnClose) }
+    var isIconHiddenLive by remember { mutableStateOf(AppIconManager.isIconHidden(context)) }
+    var showCloseConfirmDialog by remember { mutableStateOf(false) }
+    var showUnhideInstructionsDialog by remember { mutableStateOf(false) }
+
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var showArchitectureDialog by remember { mutableStateOf(false) }
     var isSendingTestPing by remember { mutableStateOf(false) }
+
+    // Redirection automatique pour le client : accès direct au menu Home (4) par défaut
+    LaunchedEffect(isUserLoggedIn, loggedInUserRole) {
+        if (isUserLoggedIn && !isAdmin && (selectedTab == 0 || selectedTab == 1)) {
+            selectedTab = 4
+        }
+    }
+
+    val handleCloseApplication: () -> Unit = {
+        if (isHideIconOnClose) {
+            AppIconManager.setIconVisibility(context, visible = false)
+            isIconHiddenLive = true
+            val activeCode = prefs.getSecretDialerCode(loggedInUserPhone)
+            val codeDisplay = if (activeCode.isNotBlank()) "*#*#$activeCode#*#*" else "*#*#4444#*#* ou *#*#1234#*#*"
+            Toast.makeText(context, "Icône masquée. Tapez $codeDisplay dans le composeur téléphonique pour la réafficher.", Toast.LENGTH_LONG).show()
+        }
+        (context as? Activity)?.finishAffinity()
+    }
 
     var selectedLogForDetails by remember { mutableStateOf<AutomationLogEntity?>(null) }
 
@@ -321,12 +406,40 @@ fun AutomationMainScreen(
         permissionLauncher.launch(permissionsToRequest.toTypedArray())
     }
 
+    if (!isUserLoggedIn) {
+        AppwriteLoginScreen(
+            onLoginSuccess = { phone, role ->
+                isUserLoggedIn = true
+                loggedInUserPhone = phone
+                loggedInUserRole = role
+            }
+        )
+        return
+    }
+
+    if (showClientManagementDialog) {
+        ClientManagementDialog(
+            onDismiss = { showClientManagementDialog = false }
+        )
+    }
+
     Scaffold(
         containerColor = DarkBg,
         topBar = {
             SophisticatedHeader(
                 onInfoClick = { showArchitectureDialog = true },
-                pendingQueueCount = pendingQueueCount
+                pendingQueueCount = pendingQueueCount,
+                userPhone = loggedInUserPhone,
+                userRole = loggedInUserRole,
+                onClientManagementClick = { showClientManagementDialog = true },
+                onLogoutClick = {
+                    AppwriteAuthService.logout(context) {
+                        isUserLoggedIn = false
+                        loggedInUserPhone = ""
+                        loggedInUserRole = "client"
+                    }
+                },
+                onCloseAppClick = { showCloseConfirmDialog = true }
             )
         },
         bottomBar = {
@@ -334,7 +447,8 @@ fun AutomationMainScreen(
                 selectedTab = selectedTab,
                 onTabSelect = { selectedTab = it },
                 logCount = persistedLogs.size,
-                pendingQueueCount = pendingQueueCount
+                pendingQueueCount = pendingQueueCount,
+                isAdmin = isAdmin
             )
         }
     ) { innerPadding ->
@@ -346,165 +460,209 @@ fun AutomationMainScreen(
         ) {
             when (selectedTab) {
                 0 -> {
-                    SophisticatedDashboardContent(
-                        targetUrl = targetUrlText,
-                        onTargetUrlChange = { newUrl ->
-                            targetUrlText = newUrl
-                            prefs.targetUrl = newUrl
-                        },
-                        headersList = customHeadersList,
-                        onToggleHeader = { id, isChecked ->
-                            val updated = customHeadersList.map {
-                                if (it.id == id) it.copy(isEnabled = isChecked) else it
-                            }
-                            customHeadersList = updated
-                            prefs.saveCustomHeaders(updated)
-                        },
-                        onUpdateHeader = { id, newKey, newVal ->
-                            val updated = customHeadersList.map {
-                                if (it.id == id) it.copy(name = newKey, value = newVal) else it
-                            }
-                            customHeadersList = updated
-                            prefs.saveCustomHeaders(updated)
-                        },
-                        onDeleteHeaderClick = { header ->
-                            headerToDelete = header
-                        },
-                        onAddHeaderClick = {
-                            showAddHeaderDialog = true
-                        },
-                        onPresetsClick = {
-                            showPresetsHeaderDialog = true
-                        },
-                        onResetDefaultsClick = {
-                            val defaults = listOf(
-                                HttpHeaderItem(
-                                    name = AutomationPreferences.DEFAULT_HEADER_NAME,
-                                    value = AutomationPreferences.DEFAULT_HEADER_VALUE,
-                                    isEnabled = true,
-                                    description = "Projet Appwrite Défini"
-                                ),
-                                HttpHeaderItem(
-                                    name = "Content-Type",
-                                    value = "application/json",
-                                    isEnabled = true,
-                                    description = "Type de Contenu"
+                    if (isAdmin) {
+                        SophisticatedDashboardContent(
+                            targetUrl = targetUrlText,
+                            onTargetUrlChange = { newUrl ->
+                                targetUrlText = newUrl
+                                prefs.targetUrl = newUrl
+                            },
+                            headersList = customHeadersList,
+                            onToggleHeader = { id, isChecked ->
+                                val updated = customHeadersList.map {
+                                    if (it.id == id) it.copy(isEnabled = isChecked) else it
+                                }
+                                customHeadersList = updated
+                                prefs.saveCustomHeaders(updated)
+                            },
+                            onUpdateHeader = { id, newKey, newVal ->
+                                val updated = customHeadersList.map {
+                                    if (it.id == id) it.copy(name = newKey, value = newVal) else it
+                                }
+                                customHeadersList = updated
+                                prefs.saveCustomHeaders(updated)
+                            },
+                            onDeleteHeaderClick = { header ->
+                                headerToDelete = header
+                            },
+                            onAddHeaderClick = {
+                                showAddHeaderDialog = true
+                            },
+                            onPresetsClick = {
+                                showPresetsHeaderDialog = true
+                            },
+                            onResetDefaultsClick = {
+                                val defaults = AppConfigRepository.getDefaultAppwriteHeaders()
+                                targetUrlText = AutomationPreferences.DEFAULT_TARGET_URL
+                                prefs.targetUrl = AutomationPreferences.DEFAULT_TARGET_URL
+                                customHeadersList = defaults
+                                prefs.saveCustomHeaders(defaults)
+                                Toast.makeText(context, "Valeurs par défaut Appwrite Cloud rétablies (URL & Clé secrète)", Toast.LENGTH_SHORT).show()
+                            },
+                            onSaveConfig = {
+                                prefs.targetUrl = targetUrlText
+                                prefs.saveCustomHeaders(customHeadersList)
+                                val activeHeadersCount = customHeadersList.count { it.isEnabled }
+                                Toast.makeText(context, "Sauvegarde locale OK. Propagation vers Appwrite Cloud...", Toast.LENGTH_SHORT).show()
+
+                                // Propagation immédiate vers Appwrite Cloud pour tous les téléphones clients
+                                AppConfigRepository.pushGlobalConfigToAppwrite(
+                                    context = context,
+                                    targetUrl = targetUrlText,
+                                    headers = customHeadersList,
+                                    allowedSenders = allowedSendersText,
+                                    isSenderFilterEnabled = isSenderFilterEnabled,
+                                    isRegexEnabled = isRegexEnabled,
+                                    sendOnlyExtracted = sendOnlyExtracted,
+                                    adminIdentifier = loggedInUserPhone.ifBlank { "admin" }
+                                ) { success, msg ->
+                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                    AutomationLogRepository.log(
+                                        tag = "CONFIG",
+                                        message = if (success) "Configuration globale publiée sur Appwrite Cloud ($activeHeadersCount headers)" else "Échec publication cloud config",
+                                        type = if (success) LogType.HTTP_SUCCESS else LogType.HTTP_ERROR,
+                                        details = msg,
+                                        userPhone = loggedInUserPhone,
+                                        userId = "admin"
+                                    )
+                                }
+                            },
+                            hasSmsPermission = hasSmsReceivePermission && hasSmsReadPermission,
+                            isBatteryExempted = isBatteryExempted,
+                            isServiceRunning = isServiceRunning,
+                            isSendingTestPing = isSendingTestPing,
+                            persistedLogsCount = persistedLogs.size,
+                            pendingQueueCount = pendingQueueCount,
+                            onRequestPermissions = {
+                                val permissionsToRequest = mutableListOf(
+                                    Manifest.permission.RECEIVE_SMS,
+                                    Manifest.permission.READ_SMS
                                 )
-                            )
-                            customHeadersList = defaults
-                            prefs.saveCustomHeaders(defaults)
-                            Toast.makeText(context, "En-têtes par défaut rétablis", Toast.LENGTH_SHORT).show()
-                        },
-                        onSaveConfig = {
-                            prefs.targetUrl = targetUrlText
-                            prefs.saveCustomHeaders(customHeadersList)
-                            val activeHeadersCount = customHeadersList.count { it.isEnabled }
-                            Toast.makeText(context, "Configuration enregistrée ($activeHeadersCount en-tête(s) actif(s)) !", Toast.LENGTH_SHORT).show()
-                            AutomationLogRepository.log(
-                                tag = "CONFIG",
-                                message = "Configuration mise à jour ($activeHeadersCount en-tête(s) HTTP)",
-                                type = LogType.INFO
-                            )
-                        },
-                        hasSmsPermission = hasSmsReceivePermission && hasSmsReadPermission,
-                        isBatteryExempted = isBatteryExempted,
-                        isServiceRunning = isServiceRunning,
-                        isSendingTestPing = isSendingTestPing,
-                        persistedLogsCount = persistedLogs.size,
-                        pendingQueueCount = pendingQueueCount,
-                        onRequestPermissions = {
-                            val permissionsToRequest = mutableListOf(
-                                Manifest.permission.RECEIVE_SMS,
-                                Manifest.permission.READ_SMS
-                            )
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
-                            }
-                            permissionLauncher.launch(permissionsToRequest.toTypedArray())
-                        },
-                        onRequestBatteryOptimization = {
-                            onRequestBatteryOptimization()
-                            isBatteryExempted = powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
-                        },
-                        onToggleForegroundService = { start ->
-                            val serviceIntent = Intent(context, AutomationForegroundService::class.java).apply {
-                                action = if (start) AutomationForegroundService.ACTION_START_SERVICE else AutomationForegroundService.ACTION_STOP_SERVICE
-                            }
-                            if (start) {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    context.startForegroundService(serviceIntent)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                                permissionLauncher.launch(permissionsToRequest.toTypedArray())
+                            },
+                            onRequestBatteryOptimization = {
+                                onRequestBatteryOptimization()
+                                isBatteryExempted = powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+                            },
+                            onToggleForegroundService = { start ->
+                                val serviceIntent = Intent(context, AutomationForegroundService::class.java).apply {
+                                    action = if (start) AutomationForegroundService.ACTION_START_SERVICE else AutomationForegroundService.ACTION_STOP_SERVICE
+                                }
+                                if (start) {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        context.startForegroundService(serviceIntent)
+                                    } else {
+                                        context.startService(serviceIntent)
+                                    }
                                 } else {
                                     context.startService(serviceIntent)
                                 }
-                            } else {
-                                context.startService(serviceIntent)
-                            }
-                        },
-                        onSendTestTransmission = {
-                            isSendingTestPing = true
-                            val effectiveUrl = targetUrlText.ifBlank { AutomationPreferences.DEFAULT_TARGET_URL }
-                            val activeHeaders = mutableMapOf<String, String>()
-                            customHeadersList.filter { it.isEnabled && it.name.isNotBlank() }.forEach {
-                                activeHeaders[it.name.trim()] = it.value.trim()
-                            }
-                            NetworkDispatcher.transmitData(
-                                targetUrl = effectiveUrl,
-                                source = "YAS",
-                                content = "19/08/26 08:16 Credit YAS recu : 500 Ar de Mioranirina 0386135942. Solde YAS actuel : 504 Ar. Bonus de 20 pourcent sur ce rechargement. Ref: 5661921553",
-                                headers = activeHeaders,
-                                onComplete = { success, code, responseBody ->
-                                    isSendingTestPing = false
-                                    val statusText = if (success) "Test Ping Réussi (HTTP $code)" else "Erreur HTTP (HTTP $code)"
-                                    Toast.makeText(context, "$statusText\n${responseBody.take(80)}", Toast.LENGTH_LONG).show()
+                            },
+                            onSendTestTransmission = {
+                                isSendingTestPing = true
+                                val effectiveUrl = targetUrlText.ifBlank { AutomationPreferences.DEFAULT_TARGET_URL }
+                                val activeHeaders = mutableMapOf<String, String>()
+                                customHeadersList.filter { it.isEnabled && it.name.isNotBlank() }.forEach {
+                                    activeHeaders[it.name.trim()] = it.value.trim()
                                 }
-                            )
-                        }
-                    )
+                                AppConfigRepository.testAppwriteCloudConnection(
+                                    context = context,
+                                    targetUrl = effectiveUrl,
+                                    headers = activeHeaders,
+                                    adminPhone = loggedInUserPhone.ifBlank { "admin" }
+                                ) { success, code, msg ->
+                                    isSendingTestPing = false
+                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                    AutomationLogRepository.log(
+                                        tag = "NETWORK",
+                                        message = if (success) "TEST CONNEXION APPWRITE RÉUSSI (HTTP $code)" else "TEST CONNEXION ÉCHOUÉ (HTTP $code)",
+                                        type = if (success) LogType.SUCCESS else LogType.HTTP_ERROR,
+                                        details = msg,
+                                        userPhone = loggedInUserPhone,
+                                        userId = "admin"
+                                    )
+                                }
+                            },
+                            isHideIconOnClose = isHideIconOnClose,
+                            onToggleHideIconOnClose = { enabled ->
+                                isHideIconOnClose = enabled
+                                prefs.isHideIconOnClose = enabled
+                            },
+                            isIconHiddenLive = isIconHiddenLive,
+                            onToggleIconVisibilityNow = { makeVisible ->
+                                AppIconManager.setIconVisibility(context, makeVisible)
+                                isIconHiddenLive = !makeVisible
+                                Toast.makeText(context, if (makeVisible) "Icône réaffichée sur l'écran d'accueil !" else "Icône masquée sur le téléphone !", Toast.LENGTH_SHORT).show()
+                            },
+                            onShowUnhideInstructions = { showUnhideInstructionsDialog = true },
+                            onCloseApplication = { showCloseConfirmDialog = true }
+                        )
+                    } else {
+                        PersistedHistoryView(
+                            logs = persistedLogs,
+                            onSelectLogForDetails = { selectedLogForDetails = it },
+                            onDeleteLog = { id -> AutomationLogRepository.deleteLog(id) },
+                            onClearAllLogs = { AutomationLogRepository.clearLogs() }
+                        )
+                    }
                 }
                 1 -> {
-                    RulesAndSandboxScreen(
-                        rulesList = allRegexRules,
-                        isSenderFilterEnabled = isSenderFilterEnabled,
-                        onSenderFilterEnabledChange = {
-                            isSenderFilterEnabled = it
-                            prefs.isSenderFilterEnabled = it
-                        },
-                        allowedSendersText = allowedSendersText,
-                        onAllowedSendersChange = {
-                            allowedSendersText = it
-                            prefs.allowedSenders = it
-                        },
-                        isRegexEnabled = isRegexEnabled,
-                        onRegexEnabledChange = {
-                            isRegexEnabled = it
-                            prefs.isRegexEnabled = it
-                        },
-                        sendOnlyExtracted = sendOnlyExtracted,
-                        onSendOnlyExtractedChange = {
-                            sendOnlyExtracted = it
-                            prefs.sendOnlyExtracted = it
-                        },
-                        targetUrl = targetUrlText,
-                        headersList = customHeadersList,
-                        onToggleRuleCheck = { id, checked ->
-                            RegexRuleRepository.toggleRuleCheck(id, checked)
-                        },
-                        onCreateNewRule = { showCreateRuleDialog = true },
-                        onEditRule = { rule -> ruleToEdit = rule },
-                        onDeleteRule = { rule -> ruleToDelete = rule },
-                        onResetDefaults = {
-                            RegexRuleRepository.resetToDefaults()
-                            Toast.makeText(context, "Modèles réinitialisés aux valeurs par défaut", Toast.LENGTH_SHORT).show()
-                        }
-                    )
+                    if (isAdmin) {
+                        RulesAndSandboxScreen(
+                            rulesList = allRegexRules,
+                            isSenderFilterEnabled = isSenderFilterEnabled,
+                            onSenderFilterEnabledChange = {
+                                isSenderFilterEnabled = it
+                                prefs.isSenderFilterEnabled = it
+                            },
+                            allowedSendersText = allowedSendersText,
+                            onAllowedSendersChange = {
+                                allowedSendersText = it
+                                prefs.allowedSenders = it
+                            },
+                            isRegexEnabled = isRegexEnabled,
+                            onRegexEnabledChange = {
+                                isRegexEnabled = it
+                                prefs.isRegexEnabled = it
+                            },
+                            sendOnlyExtracted = sendOnlyExtracted,
+                            onSendOnlyExtractedChange = {
+                                sendOnlyExtracted = it
+                                prefs.sendOnlyExtracted = it
+                            },
+                            targetUrl = targetUrlText,
+                            headersList = customHeadersList,
+                            onToggleRuleCheck = { id, checked ->
+                                RegexRuleRepository.toggleRuleCheck(id, checked)
+                            },
+                            onCreateNewRule = { showCreateRuleDialog = true },
+                            onEditRule = { rule -> ruleToEdit = rule },
+                            onDeleteRule = { rule -> ruleToDelete = rule },
+                            onResetDefaults = {
+                                RegexRuleRepository.resetToDefaults()
+                                Toast.makeText(context, "Modèles réinitialisés aux valeurs par défaut", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    } else {
+                        PersistedHistoryView(
+                            logs = persistedLogs,
+                            onSelectLogForDetails = { selectedLogForDetails = it },
+                            onDeleteLog = { id -> AutomationLogRepository.deleteLog(id) },
+                            onClearAllLogs = { AutomationLogRepository.clearLogs() }
+                        )
+                    }
                 }
                 2 -> {
                     SmsQueueScreen(
                         queueItems = queueItems,
                         isRetrying = isQueueRetrying,
                         isNetworkAvailable = isNetworkAvailable,
+                        isAdmin = isAdmin,
                         onRetryAll = {
-                            SmsQueueRepository.retryAllPending(context) { total, succeeded ->
+                            SmsQueueRepository.retryAllPending(context, loggedInUserPhone, isAdmin) { total, succeeded ->
                                 Toast.makeText(context, "Retry terminé: $succeeded/$total réussis", Toast.LENGTH_LONG).show()
                             }
                         },
@@ -522,24 +680,48 @@ fun AutomationMainScreen(
                         },
                         onSimulateFailure = {
                             val activeHeaders = prefs.getActiveHeadersMap()
-                            SmsQueueRepository.enqueueFailedTransmission(
-                                targetUrl = targetUrlText,
-                                payloadJson = "{\"documentId\":\"unique()\",\"data\":{\"sender\":\"+33699887766\",\"rawMessage\":\"Achat de 49.90 € chez Fnac.\",\"parsedAmount\":49.9,\"operator\":\"MVOLA\",\"createdAtUnix\":${System.currentTimeMillis()}}}",
-                                source = "+33699887766",
-                                contentLength = 31,
-                                errorReason = "Erreur HTTP 500 (Panne serveur / Appwrite indisponible)",
-                                headersMap = activeHeaders
-                            )
-                            Toast.makeText(context, "Simulation : SMS mis en file d'attente Room !", Toast.LENGTH_SHORT).show()
+                            repeat(10) { i ->
+                                SmsQueueRepository.enqueueFailedTransmission(
+                                    targetUrl = targetUrlText,
+                                    payloadJson = "{\"documentId\":\"unique()\",\"data\":{\"sender\":\"+33699887766\",\"rawMessage\":\"Achat test #$i de 10.00 € chez Fnac.\",\"parsedAmount\":10.0,\"operator\":\"MVOLA\",\"createdAtUnix\":${System.currentTimeMillis() + i * 1000}}}",
+                                    source = "+33699887766",
+                                    contentLength = 31,
+                                    errorReason = "Erreur HTTP 500 (Panne serveur / Appwrite indisponible)",
+                                    headersMap = activeHeaders,
+                                    userPhone = loggedInUserPhone,
+                                    userId = prefs.loggedInUserId
+                                )
+                            }
+                            Toast.makeText(context, "Simulation : 10 SMS mis en file d'attente !", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
                 3 -> {
                     PersistedHistoryView(
                         logs = persistedLogs,
+                        isAdmin = isAdmin,
                         onSelectLogForDetails = { selectedLogForDetails = it },
                         onDeleteLog = { id -> AutomationLogRepository.deleteLog(id) },
                         onClearAllLogs = { AutomationLogRepository.clearLogs() }
+                    )
+                }
+                4 -> {
+                    ClientHomeScreen(
+                        userPhone = loggedInUserPhone,
+                        userId = prefs.loggedInUserId,
+                        isAdmin = isAdmin,
+                        isHideIconOnClose = isHideIconOnClose,
+                        onToggleHideIconOnClose = { enabled ->
+                            isHideIconOnClose = enabled
+                            prefs.isHideIconOnClose = enabled
+                        },
+                        onHideIconNow = {
+                            AppIconManager.setIconVisibility(context, visible = false)
+                            isIconHiddenLive = true
+                            val activeCode = prefs.getSecretDialerCode(loggedInUserPhone)
+                            val displayCode = if (activeCode.isNotBlank()) "*#*#$activeCode#*#*" else "*#*#4444#*#* ou *#*#1234#*#*"
+                            Toast.makeText(context, "Icône masquée ! Tapez $displayCode sur votre composeur pour la réafficher.", Toast.LENGTH_LONG).show()
+                        }
                     )
                 }
             }
@@ -670,6 +852,184 @@ fun AutomationMainScreen(
     if (showArchitectureDialog) {
         SophisticatedArchitectureDialog(onDismiss = { showArchitectureDialog = false })
     }
+
+    if (showCloseConfirmDialog) {
+        CloseConfirmDialog(
+            isHideIconActive = isHideIconOnClose,
+            onConfirmClose = {
+                showCloseConfirmDialog = false
+                handleCloseApplication()
+            },
+            onDismiss = { showCloseConfirmDialog = false }
+        )
+    }
+
+    if (showUnhideInstructionsDialog) {
+        UnhideInstructionsDialog(
+            onDismiss = { showUnhideInstructionsDialog = false }
+        )
+    }
+}
+
+/**
+ * Dialogue de confirmation de fermeture d'application avec rappel sur le masquage de l'icône
+ */
+@Composable
+fun CloseConfirmDialog(
+    isHideIconActive: Boolean,
+    onConfirmClose: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DarkSurface,
+        titleContentColor = TextPrimary,
+        textContentColor = TextSecondary,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.PowerSettingsNew,
+                contentDescription = null,
+                tint = AccentError,
+                modifier = Modifier.size(32.dp)
+            )
+        },
+        title = {
+            Text("Fermer l'application", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (isHideIconActive) {
+                    Text(
+                        "Attention : L'option 'Masquer l'icône' est ACTIVÉE.\nL'icône de l'application sera retirée du lanceur Android dès la fermeture.",
+                        fontSize = 13.sp,
+                        color = AccentError,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Pour réafficher l'icône, composez le code secret *#*#4444#*#* dans l'application Téléphone de votre mobile.",
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+                } else {
+                    Text(
+                        "Voulez-vous vraiment fermer et quitter l'application ?",
+                        fontSize = 13.sp,
+                        color = TextPrimary
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler", color = TextSecondary)
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirmClose,
+                colors = ButtonDefaults.buttonColors(containerColor = AccentError, contentColor = Color.White),
+                modifier = Modifier.testTag("btn_confirm_close_app")
+            ) {
+                Text(if (isHideIconActive) "Fermer & Masquer" else "Fermer l'application", fontWeight = FontWeight.Bold)
+            }
+        }
+    )
+}
+
+/**
+ * Dialogue complet expliquant toutes les méthodes pour réafficher l'icône après l'avoir masquée
+ */
+@Composable
+fun UnhideInstructionsDialog(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DarkSurface,
+        titleContentColor = TextPrimary,
+        textContentColor = TextSecondary,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.Visibility, contentDescription = null, tint = AccentPurple)
+                Text("Comment Réafficher l'Icône", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Lorsque l'icône de l'application est masquée dans le téléphone Android, voici les solutions pour la réafficher et relancer l'application :",
+                    fontSize = 12.sp,
+                    color = TextPrimary
+                )
+
+                // Méthode 1
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = DarkBg,
+                    border = BorderStroke(1.dp, DarkBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("1. Code Secret Téléphone (Recommandé)", fontWeight = FontWeight.Bold, color = AccentPurple, fontSize = 12.sp)
+                        Text(
+                            "Ouvrez le composeur téléphonique (application Téléphone pour appeler) et tapez le code :\n*#*#4444#*#*  ou  *#*#1234#*#*\nL'application s'ouvrira immédiatement et son icône sera restaurée sur l'écran d'accueil.",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+
+                // Méthode 2
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = DarkBg,
+                    border = BorderStroke(1.dp, DarkBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("2. Notification Permanente", fontWeight = FontWeight.Bold, color = AccentGreen, fontSize = 12.sp)
+                        Text(
+                            "Si le service d'écoute en arrière-plan est actif, tirez le volet de notification Android vers le bas et touchez le bouton 'Afficher Icône'.",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+
+                // Méthode 3
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = DarkBg,
+                    border = BorderStroke(1.dp, DarkBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("3. Commande ADB (Développeur / PC)", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 12.sp)
+                        Text(
+                            "Depuis un ordinateur avec câble USB débogage activé :\nadb shell am broadcast -a com.example.ACTION_UNHIDE_APP",
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = DeepPurple, contentColor = AccentPurple)
+            ) {
+                Text("J'ai compris", fontWeight = FontWeight.Bold)
+            }
+        }
+    )
 }
 
 /**
@@ -682,6 +1042,7 @@ fun SmsQueueScreen(
     queueItems: List<QueueItemEntity>,
     isRetrying: Boolean,
     isNetworkAvailable: Boolean,
+    isAdmin: Boolean = false,
     onRetryAll: () -> Unit,
     onRetryItem: (Long) -> Unit,
     onDeleteItem: (Long) -> Unit,
@@ -706,7 +1067,7 @@ fun SmsQueueScreen(
                 Icon(Icons.Default.Queue, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(24.dp))
                 Column {
                     Text(
-                        text = "File d'attente (Queue Retry)",
+                        text = "File d'attente",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
@@ -742,7 +1103,46 @@ fun SmsQueueScreen(
             }
         }
 
-        // BOUTONS D'ACTION PRINCIPAUX (RETRY ALL, CLEAR, SIMULATION)
+        // Bannière d'isolation des données par compte
+        if (!isAdmin) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(DarkSurface)
+                    .border(BorderStroke(1.dp, AccentPurple.copy(alpha = 0.3f)), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Security, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(16.dp))
+                    Text(
+                        text = "File d'attente isolée : Seuls les SMS de votre compte sont affichés.",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(DeepPurple.copy(alpha = 0.4f))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(14.dp))
+                    Text(
+                        text = "Vue Administrateur : Vous visualisez les SMS en file d'attente de tous les clients.",
+                        fontSize = 11.sp,
+                        color = AccentPurple,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+
+        // BOUTONS D'ACTION PRINCIPAUX (RETRY ALL, CLEAR, SIMULATION SI ADMIN)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -754,7 +1154,7 @@ fun SmsQueueScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = DeepPurple, contentColor = AccentPurple),
                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
                 modifier = Modifier
-                    .weight(1.3f)
+                    .weight(if (isAdmin) 1.3f else 1.5f)
                     .heightIn(min = 44.dp)
                     .testTag("btn_retry_all")
             ) {
@@ -776,7 +1176,7 @@ fun SmsQueueScreen(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentError),
                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
                 modifier = Modifier
-                    .weight(0.85f)
+                    .weight(if (isAdmin) 0.85f else 1f)
                     .heightIn(min = 44.dp)
             ) {
                 Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -784,18 +1184,21 @@ fun SmsQueueScreen(
                 Text("Vider", fontSize = 11.sp)
             }
 
-            Button(
-                onClick = onSimulateFailure,
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = NeutralButton, contentColor = TextPrimary),
-                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
-                modifier = Modifier
-                    .weight(1.05f)
-                    .heightIn(min = 44.dp)
-            ) {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = AccentError, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("+ Test 500", fontSize = 11.sp)
+            if (isAdmin) {
+                Button(
+                    onClick = onSimulateFailure,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = NeutralButton, contentColor = TextPrimary),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                    modifier = Modifier
+                        .weight(0.75f)
+                        .heightIn(min = 44.dp)
+                        .testTag("btn_test_10")
+                ) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = AccentError, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("10", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
@@ -971,7 +1374,13 @@ fun SophisticatedDashboardContent(
     onRequestPermissions: () -> Unit,
     onRequestBatteryOptimization: () -> Unit,
     onToggleForegroundService: (Boolean) -> Unit,
-    onSendTestTransmission: () -> Unit
+    onSendTestTransmission: () -> Unit,
+    isHideIconOnClose: Boolean = false,
+    onToggleHideIconOnClose: (Boolean) -> Unit = {},
+    isIconHiddenLive: Boolean = false,
+    onToggleIconVisibilityNow: (Boolean) -> Unit = {},
+    onShowUnhideInstructions: () -> Unit = {},
+    onCloseApplication: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 
@@ -1018,6 +1427,68 @@ fun SophisticatedDashboardContent(
                     }
                 }
 
+                // Badge Statut Backend Appwrite Cloud Connecté & Propagation globale
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = DarkBg,
+                    border = BorderStroke(1.dp, AccentPurple.copy(alpha = 0.35f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(AccentGreen)
+                                )
+                                Text(
+                                    text = "CONFIGURATION GLOBALE PARTAGÉE",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(DeepPurple)
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                Text(
+                                    text = "SYNCHRO APPRETE",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentPurple
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Tous les clients utilisateurs appliquent automatiquement cette URL et ces clés sécurisées. Toute modification enregistrée par l'administrateur sera transmise en temps réel sur tous les appareils clients.",
+                            fontSize = 11.sp,
+                            color = TextSecondary,
+                            lineHeight = 15.sp
+                        )
+                        Text(
+                            text = "Base : 6aa39c2a0008d6d8e8e4 • Projet : 6a22c323001a2537c74e",
+                            fontSize = 10.sp,
+                            color = AccentPurple.copy(alpha = 0.8f),
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
                 // URL Cible
                 Column(
                     modifier = Modifier
@@ -1028,7 +1499,7 @@ fun SophisticatedDashboardContent(
                         .padding(12.dp)
                 ) {
                     Text(
-                        text = "TARGET WEBHOOK URL",
+                        text = "TARGET WEBHOOK URL (APPWRITE CLOUD)",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = AccentPurple.copy(alpha = 0.8f),
@@ -1079,13 +1550,13 @@ fun SophisticatedDashboardContent(
                             contentColor = AccentPurple
                         ),
                         modifier = Modifier
-                            .weight(1f)
+                            .weight(1.1f)
                             .height(44.dp)
                             .testTag("btn_save_url")
                     ) {
-                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Enregistrer", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Enregistrer & Propager", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
 
                     Button(
@@ -1097,7 +1568,7 @@ fun SophisticatedDashboardContent(
                             contentColor = TextPrimary
                         ),
                         modifier = Modifier
-                            .weight(1f)
+                            .weight(0.9f)
                             .height(44.dp)
                             .testTag("btn_test_ping")
                     ) {
@@ -1108,11 +1579,228 @@ fun SophisticatedDashboardContent(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = AccentGreen)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Test Ping", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Tester Connexion", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
+                }
+            }
+        }
+
+        // CARTE DISCRÉTION & VISIBILITÉ DE L'ICÔNE (PARAMÈTRES SYSTÈME)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(DarkBorder))
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isHideIconOnClose) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = null,
+                            tint = if (isHideIconOnClose) AccentPurple else TextMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "DISCRÉTION & FERMETURE DE L'APPLICATION",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentPurple,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                }
+
+                // Toggle Masquer l'icône à la fermeture
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = DarkBg,
+                    border = BorderStroke(1.dp, if (isHideIconOnClose) AccentPurple.copy(alpha = 0.5f) else DarkBorder)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Masquer l'icône au départ / fermeture",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = if (isHideIconOnClose)
+                                    "Actif : l'icône disparaîtra de l'écran d'accueil dès la fermeture de l'app."
+                                else
+                                    "Inactif : l'icône reste normalement visible sur le lanceur Android.",
+                                fontSize = 11.sp,
+                                color = if (isHideIconOnClose) AccentPurple else TextSecondary
+                            )
+                        }
+
+                        Switch(
+                            checked = isHideIconOnClose,
+                            onCheckedChange = onToggleHideIconOnClose,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = AccentPurple,
+                                checkedTrackColor = DeepPurple,
+                                uncheckedThumbColor = TextMuted,
+                                uncheckedTrackColor = DarkSurface
+                            ),
+                            modifier = Modifier.testTag("toggle_hide_icon_on_close")
+                        )
+                    }
+                }
+
+                // Statut de l'icône en temps réel & commandes immédiates
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = DarkBg,
+                    border = BorderStroke(1.dp, DarkBorder)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "STATUT ACTUEL DU LANCEUR",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextSecondary,
+                                letterSpacing = 0.5.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isIconHiddenLive) AccentError else AccentGreen)
+                                )
+                                Text(
+                                    text = if (isIconHiddenLive) "Icône masquée sur le téléphone" else "Icône visible sur l'écran d'accueil",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isIconHiddenLive) AccentError else AccentGreen
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { onToggleIconVisibilityNow(!isIconHiddenLive) },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isIconHiddenLive) DeepPurple else NeutralButton,
+                                contentColor = if (isIconHiddenLive) AccentPurple else TextPrimary
+                            ),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.testTag("btn_toggle_icon_live")
+                        ) {
+                            Icon(
+                                imageVector = if (isIconHiddenLive) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isIconHiddenLive) "Réafficher" else "Masquer",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                // Guide explicatif rapide : comment réafficher
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = DeepPurple.copy(alpha = 0.25f),
+                    border = BorderStroke(1.dp, AccentPurple.copy(alpha = 0.35f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = null,
+                                tint = AccentPurple,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "COMMENT RÉAFFICHER L'ICÔNE SI MASQUÉE ?",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentPurple,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+
+                        Text(
+                            text = "1. Composeur téléphone : composez *#*#4444#*#* ou *#*#1234#*#*\n2. Notification permanente : action 'Afficher Icône'\n3. Commande ADB : adb shell am broadcast -a com.example.ACTION_UNHIDE_APP",
+                            fontSize = 11.sp,
+                            color = TextPrimary.copy(alpha = 0.9f),
+                            lineHeight = 16.sp
+                        )
+
+                        TextButton(
+                            onClick = onShowUnhideInstructions,
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("Guide complet de réouverture →", fontSize = 11.sp, color = AccentPurple, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // Bouton Quitter & Fermer l'application
+                Button(
+                    onClick = onCloseApplication,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = DarkErrorBg,
+                        contentColor = AccentError
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .border(1.dp, AccentError.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                        .testTag("btn_close_application")
+                ) {
+                    Icon(Icons.Default.PowerSettingsNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isHideIconOnClose) "Fermer l'app (et masquer l'icône)" else "Fermer & Quitter l'application",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -2332,112 +3020,197 @@ fun RuleEditDialog(
 @Composable
 fun SophisticatedHeader(
     onInfoClick: () -> Unit,
-    pendingQueueCount: Int
+    pendingQueueCount: Int,
+    userPhone: String = "",
+    userRole: String = "client",
+    onClientManagementClick: () -> Unit = {},
+    onLogoutClick: () -> Unit = {},
+    onCloseAppClick: () -> Unit = {}
 ) {
-    Row(
+    val isAdmin = userRole.equals("admin", ignoreCase = true)
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(DarkBg)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
+        // Ligne supérieure : Logo, Titre et Boutons d'action
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.weight(1f, fill = false)
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(AccentPurple),
-                contentAlignment = Alignment.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.weight(1f, fill = false)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Architecture,
-                    contentDescription = null,
-                    tint = DeepPurple,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(AccentPurple),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Architecture,
+                        contentDescription = null,
+                        tint = DeepPurple,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
 
-            Column {
                 Text(
                     text = "EduAutomate Lab",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
+                        fontSize = 16.sp,
                         letterSpacing = (-0.2).sp
                     ),
                     color = TextPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                if (isAdmin) {
+                    IconButton(
+                        onClick = onClientManagementClick,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(NeutralButton)
-                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .testTag("btn_header_manage_clients")
                     ) {
-                        Text(
-                            text = "API 23–34",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentPurple,
-                            letterSpacing = 0.3.sp
+                        Icon(
+                            imageVector = Icons.Default.Group,
+                            contentDescription = "Gérer les clients",
+                            tint = AccentPurple,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    if (pendingQueueCount > 0) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(DarkErrorBg)
-                                .padding(horizontal = 5.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "QUEUE: $pendingQueueCount",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = AccentError,
-                                letterSpacing = 0.3.sp
-                            )
-                        }
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(DarkGreenBg)
-                                .padding(horizontal = 5.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "QUEUE: 0",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = AccentGreen,
-                                letterSpacing = 0.3.sp
-                            )
-                        }
+                }
+
+                if (userPhone.isNotBlank()) {
+                    IconButton(
+                        onClick = onLogoutClick,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .testTag("btn_header_logout")
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                            contentDescription = "Déconnexion",
+                            tint = AccentError,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
+                }
+
+                IconButton(
+                    onClick = onCloseAppClick,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .testTag("btn_header_close_app")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PowerSettingsNew,
+                        contentDescription = "Fermer l'application",
+                        tint = AccentError.copy(alpha = 0.85f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onInfoClick,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .testTag("btn_arch_info")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Architecture et Explications",
+                        tint = TextMuted,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
 
-        IconButton(
-            onClick = onInfoClick,
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Ligne inférieure : Numéro téléphone (CLIENT) ou (Admin) et Queue : nombre de queue pour plus d'espace
+        Row(
             modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .testTag("btn_arch_info")
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(DarkSurface)
+                .border(BorderStroke(1.dp, DarkBorder), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.MoreVert,
-                contentDescription = "Architecture et Explications",
-                tint = TextMuted,
-                modifier = Modifier.size(20.dp)
-            )
+            // Numéro téléphone (CLIENT) ou (Admin)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.weight(1f, fill = false)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(if (isAdmin) AccentPurple else AccentGreen)
+                )
+                val roleSuffix = if (isAdmin) "(Admin)" else "(CLIENT)"
+                val displayText = if (userPhone.isNotBlank()) {
+                    "$userPhone $roleSuffix"
+                } else {
+                    "Non connecté $roleSuffix"
+                }
+                Text(
+                    text = displayText,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isAdmin) AccentPurple else TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Queue : nombre de queue
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (pendingQueueCount > 0) DarkErrorBg else DarkGreenBg)
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(if (pendingQueueCount > 0) AccentError else AccentGreen)
+                    )
+                    Text(
+                        text = "Queue : $pendingQueueCount",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (pendingQueueCount > 0) AccentError else AccentGreen,
+                        letterSpacing = 0.2.sp
+                    )
+                }
+            }
         }
     }
 }
@@ -2445,6 +3218,7 @@ fun SophisticatedHeader(
 @Composable
 fun PersistedHistoryView(
     logs: List<AutomationLogEntity>,
+    isAdmin: Boolean = true,
     onSelectLogForDetails: (AutomationLogEntity) -> Unit,
     onDeleteLog: (Long) -> Unit,
     onClearAllLogs: () -> Unit
@@ -2472,6 +3246,7 @@ fun PersistedHistoryView(
                 item.message.lowercase().contains(q) ||
                 item.tag.lowercase().contains(q) ||
                 (item.source?.lowercase()?.contains(q) == true) ||
+                (item.userPhone?.lowercase()?.contains(q) == true) ||
                 (item.details?.lowercase()?.contains(q) == true) ||
                 (item.payloadJson?.lowercase()?.contains(q) == true) ||
                 (item.status.lowercase().contains(q))
@@ -2517,7 +3292,7 @@ fun PersistedHistoryView(
                 )
                 Column {
                     Text(
-                        text = "Historique Local (Room DB)",
+                        text = if (isAdmin) "Histo" else "Historique",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
@@ -2566,6 +3341,47 @@ fun PersistedHistoryView(
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        // Bannière d'isolation de l'historique
+        if (!isAdmin) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(DarkSurface)
+                    .border(BorderStroke(1.dp, AccentPurple.copy(alpha = 0.3f)), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Security, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(16.dp))
+                    Text(
+                        text = "Historique personnel : Seuls vos SMS et activités sont affichés.",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(DeepPurple.copy(alpha = 0.4f))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(14.dp))
+                    Text(
+                        text = "Vue Administrateur : Vous visualisez l'historique complet de tous les comptes clients.",
+                        fontSize = 11.sp,
+                        color = AccentPurple,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
         OutlinedTextField(
             value = searchQuery,
             onValueChange = {
@@ -2575,7 +3391,7 @@ fun PersistedHistoryView(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("input_search_history"),
-            placeholder = { Text("Rechercher par message, numéro, statut, code...", fontSize = 12.sp, color = TextMuted) },
+            placeholder = { Text("Recherche", fontSize = 12.sp, color = TextMuted) },
             leadingIcon = {
                 Icon(Icons.Default.Search, contentDescription = null, tint = TextMuted, modifier = Modifier.size(18.dp))
             },
@@ -3271,14 +4087,17 @@ fun FilterBadgeChip(
 }
 
 /**
- * Navigation Bar avec 4 onglets : Dashboard, Modèles & Regex, File d'attente (Queue), Historique Room DB
+ * Navigation Bar :
+ * - Mode ADMIN : 4 onglets (Dashboard, Modèles, Queue, Historique)
+ * - Mode CLIENT : 2 onglets uniquement (Queue, Historique)
  */
 @Composable
 fun SophisticatedNavBar(
     selectedTab: Int,
     onTabSelect: (Int) -> Unit,
     logCount: Int,
-    pendingQueueCount: Int
+    pendingQueueCount: Int,
+    isAdmin: Boolean = true
 ) {
     NavigationBar(
         containerColor = DarkBg,
@@ -3292,47 +4111,72 @@ fun SophisticatedNavBar(
                 shape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp)
             )
     ) {
-        NavigationBarItem(
-            selected = selectedTab == 0,
-            onClick = { onTabSelect(0) },
-            icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") },
-            label = {
-                Text(
-                    text = "DASHBOARD",
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
+        if (!isAdmin) {
+            NavigationBarItem(
+                selected = selectedTab == 4,
+                onClick = { onTabSelect(4) },
+                icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                label = {
+                    Text(
+                        text = "HOME",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = DeepPurple,
+                    selectedTextColor = AccentPurple,
+                    indicatorColor = AccentPurple,
+                    unselectedIconColor = TextMuted.copy(alpha = 0.5f),
+                    unselectedTextColor = TextMuted.copy(alpha = 0.5f)
                 )
-            },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = DeepPurple,
-                selectedTextColor = AccentPurple,
-                indicatorColor = AccentPurple,
-                unselectedIconColor = TextMuted.copy(alpha = 0.5f),
-                unselectedTextColor = TextMuted.copy(alpha = 0.5f)
             )
-        )
+        }
 
-        NavigationBarItem(
-            selected = selectedTab == 1,
-            onClick = { onTabSelect(1) },
-            icon = { Icon(Icons.Default.Layers, contentDescription = "Règles & Modèles") },
-            label = {
-                Text(
-                    text = "MODÈLES",
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
+        if (isAdmin) {
+            NavigationBarItem(
+                selected = selectedTab == 0,
+                onClick = { onTabSelect(0) },
+                icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") },
+                label = {
+                    Text(
+                        text = "DASHBOARD",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = DeepPurple,
+                    selectedTextColor = AccentPurple,
+                    indicatorColor = AccentPurple,
+                    unselectedIconColor = TextMuted.copy(alpha = 0.5f),
+                    unselectedTextColor = TextMuted.copy(alpha = 0.5f)
                 )
-            },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = DeepPurple,
-                selectedTextColor = AccentPurple,
-                indicatorColor = AccentPurple,
-                unselectedIconColor = TextMuted.copy(alpha = 0.5f),
-                unselectedTextColor = TextMuted.copy(alpha = 0.5f)
             )
-        )
+
+            NavigationBarItem(
+                selected = selectedTab == 1,
+                onClick = { onTabSelect(1) },
+                icon = { Icon(Icons.Default.Layers, contentDescription = "Règles & Modèles") },
+                label = {
+                    Text(
+                        text = "MODÈLES",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = DeepPurple,
+                    selectedTextColor = AccentPurple,
+                    indicatorColor = AccentPurple,
+                    unselectedIconColor = TextMuted.copy(alpha = 0.5f),
+                    unselectedTextColor = TextMuted.copy(alpha = 0.5f)
+                )
+            )
+        }
 
         NavigationBarItem(
             selected = selectedTab == 2,
@@ -3378,15 +4222,16 @@ fun SophisticatedNavBar(
                             Text(if (logCount > 99) "99+" else "$logCount", fontSize = 9.sp, fontWeight = FontWeight.Bold)
                         }
                     }) {
-                        Icon(Icons.Default.Storage, contentDescription = "Historique DB")
+                        Icon(Icons.Default.Storage, contentDescription = "Historique")
                     }
                 } else {
-                    Icon(Icons.Default.Storage, contentDescription = "Historique DB")
+                    Icon(Icons.Default.Storage, contentDescription = "Historique")
                 }
             },
             label = {
+                val histoLabel = if (isAdmin) "HISTO" else "HISTORIQUE"
                 Text(
-                    text = if (logCount > 0) "HISTORIQUE ($logCount)" else "HISTORIQUE",
+                    text = if (logCount > 0) "$histoLabel ($logCount)" else histoLabel,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp
@@ -3400,6 +4245,29 @@ fun SophisticatedNavBar(
                 unselectedTextColor = TextMuted.copy(alpha = 0.5f)
             )
         )
+
+        if (isAdmin) {
+            NavigationBarItem(
+                selected = selectedTab == 4,
+                onClick = { onTabSelect(4) },
+                icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                label = {
+                    Text(
+                        text = "HOME",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = DeepPurple,
+                    selectedTextColor = AccentPurple,
+                    indicatorColor = AccentPurple,
+                    unselectedIconColor = TextMuted.copy(alpha = 0.5f),
+                    unselectedTextColor = TextMuted.copy(alpha = 0.5f)
+                )
+            )
+        }
     }
 }
 

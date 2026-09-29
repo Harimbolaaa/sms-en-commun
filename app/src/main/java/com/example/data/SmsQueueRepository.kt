@@ -29,6 +29,7 @@ object SmsQueueRepository {
 
     private const val TAG = "SmsQueueRepository"
     private var dao: QueueItemDao? = null
+    private var appContext: Context? = null
     private val scope = CoroutineScope(Dispatchers.IO)
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -50,6 +51,7 @@ object SmsQueueRepository {
     }
 
     fun init(context: Context) {
+        appContext = context.applicationContext
         if (dao == null) {
             val db = AppDatabase.getDatabase(context)
             dao = db.queueItemDao()
@@ -103,6 +105,32 @@ object SmsQueueRepository {
     }
 
     /**
+     * Flux réactif des éléments de la file d'attente filtré par utilisateur :
+     * - Pour l'administrateur : accès à la totalité de la file d'attente.
+     * - Pour un utilisateur client : accès STRICTEMENT à ses propres SMS mis en file.
+     */
+    fun getQueueItemsForUser(userPhone: String, isAdmin: Boolean): Flow<List<QueueItemEntity>> {
+        val d = dao ?: return MutableStateFlow(emptyList())
+        return if (isAdmin || userPhone.isBlank()) {
+            d.getAllQueueItems()
+        } else {
+            d.getQueueItemsByUserPhone(userPhone)
+        }
+    }
+
+    /**
+     * Nombre d'éléments en attente filtré par utilisateur :
+     */
+    fun getPendingCountForUser(userPhone: String, isAdmin: Boolean): Flow<Int> {
+        val d = dao ?: return MutableStateFlow(0)
+        return if (isAdmin || userPhone.isBlank()) {
+            d.getPendingCount()
+        } else {
+            d.getPendingCountByUserPhone(userPhone)
+        }
+    }
+
+    /**
      * Flux réactif de tous les éléments de la file d'attente
      */
     fun getAllQueueItems(): Flow<List<QueueItemEntity>> {
@@ -118,6 +146,7 @@ object SmsQueueRepository {
 
     /**
      * Ajoute un message échoué dans la file d'attente locale permanente Room
+     * avec association de l'identité du compte utilisateur connecté.
      */
     fun enqueueFailedTransmission(
         targetUrl: String,
@@ -127,8 +156,19 @@ object SmsQueueRepository {
         errorReason: String,
         headersMap: Map<String, String>? = null,
         headerName: String? = null,
-        headerValue: String? = null
+        headerValue: String? = null,
+        userPhone: String? = null,
+        userId: String? = null
     ) {
+        val effectiveUserPhone = userPhone ?: appContext?.let {
+            val p = AutomationPreferences(it)
+            if (p.isLoggedIn) p.loggedInUserPhone else null
+        }
+        val effectiveUserId = userId ?: appContext?.let {
+            val p = AutomationPreferences(it)
+            if (p.isLoggedIn) p.loggedInUserId else null
+        }
+
         val headersJson = if (!headersMap.isNullOrEmpty()) {
             val obj = org.json.JSONObject()
             headersMap.forEach { (k, v) -> obj.put(k, v) }
@@ -147,7 +187,9 @@ object SmsQueueRepository {
             lastAttemptTimestamp = System.currentTimeMillis(),
             headerName = headerName,
             headerValue = headerValue,
-            headersJson = headersJson
+            headersJson = headersJson,
+            userPhone = effectiveUserPhone,
+            userId = effectiveUserId
         )
 
         scope.launch {
@@ -259,9 +301,13 @@ object SmsQueueRepository {
 
     /**
      * Réessaie tous les éléments en attente dans la file d'attente de manière séquentielle
+     * - Pour un client : réessaie uniquement ses propres SMS.
+     * - Pour l'administrateur : réessaie tous les SMS en attente.
      */
     fun retryAllPending(
         context: Context,
+        userPhone: String? = null,
+        isAdmin: Boolean = true,
         onFinished: ((Int, Int) -> Unit)? = null // (total, succeeded)
     ) {
         if (_isRetrying.value) {
@@ -270,7 +316,12 @@ object SmsQueueRepository {
         }
 
         scope.launch {
-            val pendingList = dao?.getPendingQueueItemsSync() ?: emptyList()
+            val pendingList = if (isAdmin || userPhone.isNullOrBlank()) {
+                dao?.getPendingQueueItemsSync() ?: emptyList()
+            } else {
+                dao?.getPendingQueueItemsSyncByUserPhone(userPhone) ?: emptyList()
+            }
+
             if (pendingList.isEmpty()) {
                 Log.d(TAG, "Aucun élément en attente dans la file d'attente.")
                 postToMainThread {

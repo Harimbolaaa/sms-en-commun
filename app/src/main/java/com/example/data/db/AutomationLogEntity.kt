@@ -18,5 +18,7 @@ data class AutomationLogEntity(
     val payloadJson: String? = null,
     val httpCode: Int? = null,
     val source: String? = null,
-    val status: String = "INFO"
+    val status: String = "INFO",
+    val userPhone: String? = null,
+    val userId: String? = null
 )

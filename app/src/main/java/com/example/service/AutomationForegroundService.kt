@@ -202,12 +202,27 @@ class AutomationForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val unhideIntent = Intent("com.example.ACTION_UNHIDE_APP").apply {
+            setPackage(packageName)
+        }
+        val pendingUnhide = PendingIntent.getBroadcast(
+            this,
+            2,
+            unhideIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(content)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
             .setContentIntent(pendingOpenApp)
+            .addAction(
+                android.R.drawable.ic_menu_view,
+                "Afficher Icône",
+                pendingUnhide
+            )
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
                 "Arrêter",
