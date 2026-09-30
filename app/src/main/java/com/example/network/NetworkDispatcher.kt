@@ -174,7 +174,7 @@ object NetworkDispatcher {
 
                 // Ajout des en-têtes HTTP configurés
                 effectiveHeaders.forEach { (name, value) ->
-                    if (name.isNotBlank()) {
+                    if (name.isNotBlank() && !name.equals("Content-Length", ignoreCase = true)) {
                         requestBuilder.header(name.trim(), value.trim())
                     }
                 }
@@ -348,7 +348,7 @@ object NetworkDispatcher {
             }
 
             effectiveHeaders.forEach { (name, value) ->
-                if (name.isNotBlank()) {
+                if (name.isNotBlank() && !name.equals("Content-Length", ignoreCase = true)) {
                     requestBuilder.header(name.trim(), value.trim())
                 }
             }

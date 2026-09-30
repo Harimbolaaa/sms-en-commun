@@ -64,7 +64,7 @@ class AutomationPreferences(context: Context) {
     var targetUrl: String
         get() {
             val url = prefs.getString(KEY_TARGET_URL, DEFAULT_TARGET_URL)
-            if (url.isNullOrBlank() || url.contains("makafilma")) {
+            if (url.isNullOrBlank() || url.contains("makafilma") || url.contains("6a21910a00047c04e5af")) {
                 return DEFAULT_TARGET_URL
             }
             return url
@@ -373,4 +373,42 @@ class AutomationPreferences(context: Context) {
         set(value) {
             prefs.edit().putLong(KEY_DIALER_LAST_MODIFIED, value).commit()
         }
+
+    fun getSenderLastReadTime(sender: String): Long {
+        return prefs.getLong("sender_read_${sender.trim().lowercase()}", 0L)
+    }
+
+    fun markSenderAsRead(sender: String, timestamp: Long = System.currentTimeMillis()) {
+        prefs.edit().putLong("sender_read_${sender.trim().lowercase()}", timestamp).commit()
+    }
+
+    // --- Gestion du Rôle de l'appareil (SOURCE vs PARTAGE) ---
+    fun getDeviceRole(userPhone: String): String {
+        val phone = userPhone.ifBlank { loggedInUserPhone }
+        return prefs.getString("role_$phone", prefs.getString("device_role", "SOURCE")) ?: "SOURCE"
+    }
+
+    fun setDeviceRole(userPhone: String, role: String) {
+        val phone = userPhone.ifBlank { loggedInUserPhone }
+        prefs.edit()
+            .putString("role_$phone", role)
+            .putString("device_role", role)
+            .commit()
+    }
+
+    fun getSourceAccountPhone(userPhone: String): String {
+        val phone = userPhone.ifBlank { loggedInUserPhone }
+        return prefs.getString("source_phone_$phone", phone) ?: phone
+    }
+
+    fun setSourceAccountPhone(userPhone: String, sourcePhone: String) {
+        val phone = userPhone.ifBlank { loggedInUserPhone }
+        prefs.edit()
+            .putString("source_phone_$phone", sourcePhone.trim())
+            .commit()
+    }
+
+    fun isDeviceSource(userPhone: String): Boolean {
+        return getDeviceRole(userPhone) == "SOURCE"
+    }
 }

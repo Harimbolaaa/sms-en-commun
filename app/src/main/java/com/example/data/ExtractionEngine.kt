@@ -328,6 +328,7 @@ object ExtractionEngine {
         dataObj.put("parsedAmount", parsedAmountNumber)
         dataObj.put("referenceId", extractedRef ?: (extractedPhone ?: ""))
         dataObj.put("operator", detectedOperator)
+        dataObj.put("direction", "RECEIVED")
         dataObj.put("createdAtUnix", timestamp)
         if (!clientPhone.isNullOrBlank()) {
             dataObj.put("clientPhone", clientPhone)

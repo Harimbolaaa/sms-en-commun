@@ -16,9 +16,10 @@ import androidx.room.RoomDatabase
         AutomationLogEntity::class,
         RegexRuleEntity::class,
         QueueItemEntity::class,
-        UserDialerCodeEntity::class
+        UserDialerCodeEntity::class,
+        DeviceSyncConfigEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -27,6 +28,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun regexRuleDao(): RegexRuleDao
     abstract fun queueItemDao(): QueueItemDao
     abstract fun userDialerCodeDao(): UserDialerCodeDao
+    abstract fun deviceSyncConfigDao(): DeviceSyncConfigDao
 
     companion object {
         @Volatile

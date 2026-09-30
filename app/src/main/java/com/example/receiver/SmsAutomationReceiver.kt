@@ -156,12 +156,20 @@ class SmsAutomationReceiver : android.content.BroadcastReceiver() {
                 ExtractionEngine.applyRegex(fullBody, prefs.regexPattern, isRegexEnabled)
             }
 
+            val deviceRole = prefs.getDeviceRole(loggedInUserPhone)
+            val isSharingDevice = deviceRole.equals("PARTAGE", ignoreCase = true)
+            val targetSourcePhone = if (isSharingDevice) {
+                prefs.getSourceAccountPhone(loggedInUserPhone).ifBlank { loggedInUserPhone }
+            } else {
+                loggedInUserPhone
+            }
+
             val finalPayload = ExtractionEngine.buildCustomJsonPayload(
                 source = sender,
                 originalContent = fullBody,
                 extractionResult = extractionResult,
                 sendOnlyExtracted = sendOnlyExtracted,
-                clientPhone = loggedInUserPhone,
+                clientPhone = targetSourcePhone,
                 clientUserId = loggedInUserId
             )
 
@@ -176,14 +184,16 @@ class SmsAutomationReceiver : android.content.BroadcastReceiver() {
                 "SMS brut reçu"
             }
 
+            val roleNotice = if (isSharingDevice) " [Mode PARTAGE -> Compte Source: $targetSourcePhone]" else " [Mode SOURCE]"
+
             AutomationLogRepository.log(
                 tag = "SMS_RECEIVER",
-                message = "SMS de $sender ($extractedSummary)",
+                message = "SMS de $sender ($extractedSummary)$roleNotice",
                 type = LogType.SMS_INTERCEPTED,
-                details = "Émetteur: $sender\nCompte Passerelle: $loggedInUserPhone\nSMS source: $fullBody\nModèles actifs: ${checkedRules.joinToString { it.title }.ifEmpty { "Modèle unique" }}\nDonnées extraites: ${if (isRegexEnabled) extractionResult.allExtractedValues.joinToString(", ").ifEmpty { "Aucune" } else "Désactivé"}\nFormat: ${format ?: "Standard"}",
+                details = "Émetteur: $sender\nRôle appareil: $deviceRole\nCompte Passerelle: $loggedInUserPhone\nCompte Source Cible: $targetSourcePhone\nSMS source: $fullBody\nModèles actifs: ${checkedRules.joinToString { it.title }.ifEmpty { "Modèle unique" }}\nDonnées extraites: ${if (isRegexEnabled) extractionResult.allExtractedValues.joinToString(", ").ifEmpty { "Aucune" } else "Désactivé"}\nFormat: ${format ?: "Standard"}",
                 payloadJson = finalPayload,
                 source = sender,
-                userPhone = loggedInUserPhone,
+                userPhone = targetSourcePhone,
                 userId = loggedInUserId
             )
 
@@ -215,7 +225,7 @@ class SmsAutomationReceiver : android.content.BroadcastReceiver() {
                     headers = activeHeaders,
                     headerName = customHeaderName,
                     headerValue = customHeaderValue,
-                    userPhone = loggedInUserPhone,
+                    userPhone = targetSourcePhone,
                     userId = loggedInUserId
                 )
             }

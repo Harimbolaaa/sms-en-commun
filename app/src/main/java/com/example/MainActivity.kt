@@ -140,6 +140,8 @@ import com.example.ui.ClientManagementDialog
 import com.example.ui.ClientHomeScreen
 import com.example.data.UserDialerRepository
 import com.example.data.AppConfigRepository
+import com.example.data.DeviceSyncRepository
+import com.example.data.db.DeviceSyncConfigEntity
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -208,6 +210,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        try {
+            com.example.util.SentSmsTracker.startTracking(this)
+        } catch (e: Exception) {
+            android.util.Log.w("MainActivity", "Impossible d'initialiser SentSmsTracker", e)
+        }
 
         setContent {
             MyApplicationTheme {
@@ -579,7 +587,7 @@ fun AutomationMainScreen(
                                     AutomationLogRepository.log(
                                         tag = "NETWORK",
                                         message = if (success) "TEST CONNEXION APPWRITE RÉUSSI (HTTP $code)" else "TEST CONNEXION ÉCHOUÉ (HTTP $code)",
-                                        type = if (success) LogType.SUCCESS else LogType.HTTP_ERROR,
+                                        type = if (success) LogType.HTTP_SUCCESS else LogType.HTTP_ERROR,
                                         details = msg,
                                         userPhone = loggedInUserPhone,
                                         userId = "admin"
@@ -603,6 +611,8 @@ fun AutomationMainScreen(
                     } else {
                         PersistedHistoryView(
                             logs = persistedLogs,
+                            isAdmin = isAdmin,
+                            userPhone = loggedInUserPhone,
                             onSelectLogForDetails = { selectedLogForDetails = it },
                             onDeleteLog = { id -> AutomationLogRepository.deleteLog(id) },
                             onClearAllLogs = { AutomationLogRepository.clearLogs() }
@@ -649,6 +659,8 @@ fun AutomationMainScreen(
                     } else {
                         PersistedHistoryView(
                             logs = persistedLogs,
+                            isAdmin = isAdmin,
+                            userPhone = loggedInUserPhone,
                             onSelectLogForDetails = { selectedLogForDetails = it },
                             onDeleteLog = { id -> AutomationLogRepository.deleteLog(id) },
                             onClearAllLogs = { AutomationLogRepository.clearLogs() }
@@ -679,20 +691,70 @@ fun AutomationMainScreen(
                             Toast.makeText(context, "File d'attente vidée", Toast.LENGTH_SHORT).show()
                         },
                         onSimulateFailure = {
-                            val activeHeaders = prefs.getActiveHeadersMap()
-                            repeat(10) { i ->
+                            val activeHeaders = prefs.getActiveHeadersMap().toMutableMap()
+                            SmsQueueRepository.sanitizeHeaders(activeHeaders)
+                            val effectiveTargetUrl = SmsQueueRepository.sanitizeUrl(
+                                targetUrlText.ifBlank { prefs.targetUrl },
+                                AutomationPreferences.DEFAULT_TARGET_URL
+                            )
+
+                            val carrierList = listOf(
+                                Triple("MVOLA", "MVOLA", 5000L),
+                                Triple("AIRTEL", "AirtelMoney", 10000L),
+                                Triple("ORANGE", "OrangeMoney", 2000L),
+                                Triple("TELMA", "TELMA", 1500L),
+                                Triple("YAS", "YAS", 500L),
+                                Triple("MVOLA", "MVOLA", 25000L),
+                                Triple("AIRTEL", "AirtelMoney", 3000L),
+                                Triple("ORANGE", "OrangeMoney", 50000L),
+                                Triple("TELMA", "TELMA", 1000L),
+                                Triple("YAS", "YAS", 8000L)
+                            )
+
+                            val phone = loggedInUserPhone.ifBlank { "0340000001" }
+                            val userId = prefs.loggedInUserId.ifBlank { "admin_user" }
+
+                            Toast.makeText(context, "Démarrage du test : Envoi de 10 SMS vers Appwrite Cloud...", Toast.LENGTH_SHORT).show()
+
+                            carrierList.forEachIndexed { i, (op, sender, amount) ->
+                                val ref = "REF-${(System.currentTimeMillis() % 1000000) + i}"
+                                val rawSms = "Credit $sender recu : $amount Ar de Client$i. Solde actuel : ${amount + 500} Ar. Ref: $ref."
+                                val payloadObj = org.json.JSONObject().apply {
+                                    put("documentId", "unique()")
+                                    put("data", org.json.JSONObject().apply {
+                                        put("sender", sender)
+                                        put("rawMessage", rawSms)
+                                        put("parsedAmount", amount)
+                                        put("referenceId", ref)
+                                        put("operator", op)
+                                        put("createdAtUnix", System.currentTimeMillis() + (i * 1000L))
+                                        put("clientPhone", phone)
+                                        put("clientUserId", userId)
+                                    })
+                                }
+                                val payloadStr = payloadObj.toString()
+
                                 SmsQueueRepository.enqueueFailedTransmission(
-                                    targetUrl = targetUrlText,
-                                    payloadJson = "{\"documentId\":\"unique()\",\"data\":{\"sender\":\"+33699887766\",\"rawMessage\":\"Achat test #$i de 10.00 € chez Fnac.\",\"parsedAmount\":10.0,\"operator\":\"MVOLA\",\"createdAtUnix\":${System.currentTimeMillis() + i * 1000}}}",
-                                    source = "+33699887766",
-                                    contentLength = 31,
-                                    errorReason = "Erreur HTTP 500 (Panne serveur / Appwrite indisponible)",
+                                    targetUrl = effectiveTargetUrl,
+                                    payloadJson = payloadStr,
+                                    source = sender,
+                                    contentLength = rawSms.length,
+                                    errorReason = "SMS de test en attente d'envoi vers Appwrite Cloud",
                                     headersMap = activeHeaders,
-                                    userPhone = loggedInUserPhone,
-                                    userId = prefs.loggedInUserId
+                                    userPhone = phone,
+                                    userId = userId
                                 )
                             }
-                            Toast.makeText(context, "Simulation : 10 SMS mis en file d'attente !", Toast.LENGTH_SHORT).show()
+
+                            // Déclenchement automatique de la transmission des 10 SMS vers Appwrite Cloud
+                            SmsQueueRepository.retryAllPending(context, loggedInUserPhone, isAdmin) { total, succeeded ->
+                                Toast.makeText(
+                                    context,
+                                    if (succeeded == total) "Test 10 SMS réussi : $succeeded/$total transmis avec succès vers Appwrite (HTTP 201) !"
+                                    else "Test terminé : $succeeded/$total réussis",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
                         }
                     )
                 }
@@ -700,6 +762,7 @@ fun AutomationMainScreen(
                     PersistedHistoryView(
                         logs = persistedLogs,
                         isAdmin = isAdmin,
+                        userPhone = loggedInUserPhone,
                         onSelectLogForDetails = { selectedLogForDetails = it },
                         onDeleteLog = { id -> AutomationLogRepository.deleteLog(id) },
                         onClearAllLogs = { AutomationLogRepository.clearLogs() }
@@ -710,6 +773,7 @@ fun AutomationMainScreen(
                         userPhone = loggedInUserPhone,
                         userId = prefs.loggedInUserId,
                         isAdmin = isAdmin,
+                        persistedLogs = persistedLogs,
                         isHideIconOnClose = isHideIconOnClose,
                         onToggleHideIconOnClose = { enabled ->
                             isHideIconOnClose = enabled
@@ -1176,7 +1240,7 @@ fun SmsQueueScreen(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentError),
                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
                 modifier = Modifier
-                    .weight(if (isAdmin) 0.85f else 1f)
+                    .weight(0.85f)
                     .heightIn(min = 44.dp)
             ) {
                 Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -1184,21 +1248,19 @@ fun SmsQueueScreen(
                 Text("Vider", fontSize = 11.sp)
             }
 
-            if (isAdmin) {
-                Button(
-                    onClick = onSimulateFailure,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = NeutralButton, contentColor = TextPrimary),
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
-                    modifier = Modifier
-                        .weight(0.75f)
-                        .heightIn(min = 44.dp)
-                        .testTag("btn_test_10")
-                ) {
-                    Icon(Icons.Default.Warning, contentDescription = null, tint = AccentError, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("10", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
+            Button(
+                onClick = onSimulateFailure,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = DeepPurple, contentColor = AccentPurple),
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .weight(0.95f)
+                    .heightIn(min = 44.dp)
+                    .testTag("btn_test_10")
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Test 10", fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -1212,7 +1274,7 @@ fun SmsQueueScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentGreen, modifier = Modifier.size(48.dp))
                         Text("File d'attente vide", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text("Tous les SMS ont été transmis avec succès au webhook !", fontSize = 12.sp, color = TextSecondary)
+                        Text("Tous les SMS ont été transmis avec succès à Appwrite Cloud !", fontSize = 12.sp, color = TextSecondary)
                     }
                 }
             } else {
@@ -1242,11 +1304,17 @@ fun QueueItemCard(
     onRetry: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val isPendingSync = item.status == "PENDING" || item.lastError.orEmpty().contains("attente", ignoreCase = true)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = DarkSurface),
-        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(AccentError.copy(alpha = 0.5f)))
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = androidx.compose.ui.graphics.SolidColor(
+                if (isPendingSync) AccentPurple.copy(alpha = 0.5f) else AccentError.copy(alpha = 0.5f)
+            )
+        )
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -1261,10 +1329,15 @@ fun QueueItemCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(DarkErrorBg)
+                            .background(if (isPendingSync) DeepPurple else DarkErrorBg)
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
-                        Text("ÉCHEC ENVOI", color = AccentError, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (isPendingSync) "EN ATTENTE" else "ÉCHEC ENVOI",
+                            color = if (isPendingSync) AccentPurple else AccentError,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                     Box(
                         modifier = Modifier
@@ -1302,8 +1375,17 @@ fun QueueItemCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = AccentError, modifier = Modifier.size(14.dp))
-                        Text(text = item.lastError, fontSize = 11.sp, color = AccentError)
+                        Icon(
+                            imageVector = if (isPendingSync) Icons.Default.Refresh else Icons.Default.ErrorOutline,
+                            contentDescription = null,
+                            tint = if (isPendingSync) AccentPurple else AccentError,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = item.lastError,
+                            fontSize = 11.sp,
+                            color = if (isPendingSync) AccentPurple else AccentError
+                        )
                     }
                 }
             }
@@ -1554,7 +1636,7 @@ fun SophisticatedDashboardContent(
                             .height(44.dp)
                             .testTag("btn_save_url")
                     ) {
-                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Enregistrer & Propager", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
@@ -3219,10 +3301,38 @@ fun SophisticatedHeader(
 fun PersistedHistoryView(
     logs: List<AutomationLogEntity>,
     isAdmin: Boolean = true,
+    userPhone: String = "",
     onSelectLogForDetails: (AutomationLogEntity) -> Unit,
     onDeleteLog: (Long) -> Unit,
     onClearAllLogs: () -> Unit
 ) {
+    val context = LocalContext.current
+    val prefs = remember { AutomationPreferences(context) }
+    val effectivePhone = userPhone.ifBlank { prefs.loggedInUserPhone }
+
+    // Rôle de l'appareil (SOURCE vs PARTAGE) persisté dans SQLite Room et SharedPreferences
+    val roomDeviceConfig by DeviceSyncRepository.observeConfig(context, effectivePhone)
+        .collectAsState(initial = null)
+
+    var currentRole by rememberSaveable(effectivePhone) {
+        mutableStateOf(prefs.getDeviceRole(effectivePhone))
+    }
+    var sourcePhoneInput by rememberSaveable(effectivePhone) {
+        mutableStateOf(prefs.getSourceAccountPhone(effectivePhone))
+    }
+
+    LaunchedEffect(roomDeviceConfig) {
+        roomDeviceConfig?.let {
+            currentRole = it.deviceRole
+            if (it.sourceAccountPhone.isNotBlank()) {
+                sourcePhoneInput = it.sourceAccountPhone
+            }
+        }
+    }
+
+    var isSyncingCloud by remember { mutableStateOf(false) }
+    var isSendingTestShared by remember { mutableStateOf(false) }
+
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilterType by remember { mutableStateOf("ALL") }
     var isTableView by remember { mutableStateOf(true) }
@@ -3278,6 +3388,258 @@ fun PersistedHistoryView(
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        // --- CARTE SÉLECTEUR DE RÔLE PASSERELLE : SOURCE vs PARTAGE ---
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            border = BorderStroke(
+                1.dp,
+                if (currentRole == "SOURCE") DeepPurple else AccentPurple.copy(alpha = 0.6f)
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Dns,
+                            contentDescription = null,
+                            tint = AccentPurple,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Rôle Passerelle de cet Appareil",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = if (currentRole == "SOURCE") "Appareil Maître (Centralise les SMS)" else "Passerelle Partagée (Satellite)",
+                                fontSize = 10.sp,
+                                color = if (currentRole == "SOURCE") AccentGreen else AccentPurple
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(if (currentRole == "SOURCE") DarkGreenBg else DeepPurple)
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = if (currentRole == "SOURCE") "SOURCE" else "PARTAGE",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (currentRole == "SOURCE") AccentGreen else AccentPurple
+                        )
+                    }
+                }
+
+                // BOUTONS TOGGLE (SOURCE vs PARTAGE)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(DarkBg)
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            currentRole = "SOURCE"
+                            DeviceSyncRepository.saveDeviceConfig(
+                                context = context,
+                                userPhone = effectivePhone,
+                                role = "SOURCE",
+                                sourceAccountPhone = effectivePhone
+                            ) {
+                                Toast.makeText(context, "Appareil configuré en mode SOURCE (Maître) !", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (currentRole == "SOURCE") DeepPurple else Color.Transparent,
+                            contentColor = if (currentRole == "SOURCE") AccentPurple else TextMuted
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .testTag("btn_toggle_source")
+                    ) {
+                        Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "MODE SOURCE",
+                            fontSize = 11.sp,
+                            fontWeight = if (currentRole == "SOURCE") FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            currentRole = "PARTAGE"
+                            DeviceSyncRepository.saveDeviceConfig(
+                                context = context,
+                                userPhone = effectivePhone,
+                                role = "PARTAGE",
+                                sourceAccountPhone = effectivePhone
+                            ) {
+                                Toast.makeText(context, "Partage activé sur cet appareil pour le compte $effectivePhone !", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (currentRole == "PARTAGE") DeepPurple else Color.Transparent,
+                            contentColor = if (currentRole == "PARTAGE") AccentPurple else TextMuted
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .testTag("btn_toggle_partage")
+                    ) {
+                        Icon(Icons.Default.Layers, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "PARTAGE ACTIVÉ",
+                            fontSize = 11.sp,
+                            fontWeight = if (currentRole == "PARTAGE") FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+
+                if (currentRole == "SOURCE") {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "• Appareil Source (Maître) connecté au compte : $effectivePhone\n" +
+                                   "• Centralise et affiche tous vos SMS (reçus et envoyés par cet appareil et vos matériels Partage).",
+                            fontSize = 11.sp,
+                            color = TextSecondary,
+                            lineHeight = 15.sp
+                        )
+
+                        Button(
+                            onClick = {
+                                isSyncingCloud = true
+                                DeviceSyncRepository.syncSharedSmsFromAppwrite(
+                                    context = context,
+                                    sourcePhone = effectivePhone
+                                ) { success, count, msg ->
+                                    isSyncingCloud = false
+                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            enabled = !isSyncingCloud,
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = DeepPurple, contentColor = AccentPurple),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
+                                .testTag("btn_sync_from_appwrite")
+                        ) {
+                            if (isSyncingCloud) {
+                                CircularProgressIndicator(modifier = Modifier.size(14.dp), color = AccentPurple, strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Synchronisation...", fontSize = 11.sp)
+                            } else {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("🔄 Synchroniser SMS depuis Appwrite Cloud", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentGreen, modifier = Modifier.size(16.dp))
+                            Text(
+                                text = "Partage ACTIVÉ sur cet appareil (Compte client : $effectivePhone)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentGreen
+                            )
+                        }
+
+                        Text(
+                            text = "• Même compte client utilisateur relié : les données restent strictement isolées à votre compte.\n" +
+                                   "• Tous les SMS REÇUS et ENVOYÉS par ce matériel Partage sont automatiquement envoyés à Appwrite Cloud pour venir dans votre appareil Source.",
+                            fontSize = 11.sp,
+                            color = TextSecondary,
+                            lineHeight = 15.sp
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    isSendingTestShared = true
+                                    DeviceSyncRepository.sendTestSharedSms(
+                                        context = context,
+                                        sharingDevicePhone = effectivePhone,
+                                        sourceAccountPhone = effectivePhone,
+                                        isSentDirection = false
+                                    ) { success, msg ->
+                                        isSendingTestShared = false
+                                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                    }
+                                },
+                                enabled = !isSendingTestShared,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = DeepPurple, contentColor = AccentPurple),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(38.dp)
+                                    .testTag("btn_test_shared_sms_received")
+                            ) {
+                                Text("📨 Test SMS Reçu", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = {
+                                    isSendingTestShared = true
+                                    DeviceSyncRepository.sendTestSharedSms(
+                                        context = context,
+                                        sharingDevicePhone = effectivePhone,
+                                        sourceAccountPhone = effectivePhone,
+                                        isSentDirection = true
+                                    ) { success, msg ->
+                                        isSendingTestShared = false
+                                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                    }
+                                },
+                                enabled = !isSendingTestShared,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = NeutralButton, contentColor = TextPrimary),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(38.dp)
+                                    .testTag("btn_test_shared_sms_sent")
+                            ) {
+                                Text("📤 Test SMS Envoyé", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

@@ -229,7 +229,7 @@ object SmsQueueRepository {
             }
 
             val prefs = AutomationPreferences(context)
-            val effectiveUrl = item.targetUrl.ifBlank { prefs.targetUrl }
+            val effectiveUrl = sanitizeUrl(item.targetUrl.ifBlank { prefs.targetUrl }, AutomationPreferences.DEFAULT_TARGET_URL)
             val effectiveHeaders = mutableMapOf<String, String>()
             if (!item.headersJson.isNullOrBlank()) {
                 try {
@@ -244,6 +244,9 @@ object SmsQueueRepository {
             if (effectiveHeaders.isEmpty()) {
                 effectiveHeaders.putAll(prefs.getActiveHeadersMap())
             }
+            sanitizeHeaders(effectiveHeaders)
+
+            val cleanPayload = sanitizePayloadForAppwrite(item.payloadJson, item.userPhone ?: prefs.loggedInUserPhone, item.userId ?: prefs.loggedInUserId)
             val headerName = item.headerName ?: (if (prefs.isCustomHeaderEnabled) prefs.customHeaderName else null)
             val headerValue = item.headerValue ?: (if (prefs.isCustomHeaderEnabled) prefs.customHeaderValue else null)
 
@@ -251,9 +254,9 @@ object SmsQueueRepository {
 
             NetworkDispatcher.transmitDataWithCustomPayload(
                 targetUrl = effectiveUrl,
-                payloadJson = item.payloadJson,
+                payloadJson = cleanPayload,
                 source = item.source,
-                contentLength = item.contentLength,
+                contentLength = cleanPayload.length,
                 headers = effectiveHeaders,
                 headerName = headerName,
                 headerValue = headerValue,
@@ -268,7 +271,7 @@ object SmsQueueRepository {
                                 message = "Retry Réussi (#$itemId) - Code $code",
                                 type = LogType.HTTP_SUCCESS,
                                 details = "SMS de ${item.source} transmis avec succès après mise en attente.",
-                                payloadJson = item.payloadJson,
+                                payloadJson = cleanPayload,
                                 httpCode = code,
                                 source = item.source
                             )
@@ -277,7 +280,8 @@ object SmsQueueRepository {
                                 attemptCount = item.attemptCount + 1,
                                 lastAttemptTimestamp = System.currentTimeMillis(),
                                 lastError = "Échec (Code $code): $responseOrError",
-                                status = "FAILED"
+                                status = "FAILED",
+                                payloadJson = cleanPayload
                             )
                             dao?.updateItem(updated)
                             AutomationLogRepository.log(
@@ -285,7 +289,7 @@ object SmsQueueRepository {
                                 message = "Retry Échoué (#$itemId) - Tentative ${updated.attemptCount}",
                                 type = LogType.HTTP_ERROR,
                                 details = "Erreur: $responseOrError",
-                                payloadJson = item.payloadJson,
+                                payloadJson = cleanPayload,
                                 httpCode = code,
                                 source = item.source
                             )
@@ -338,7 +342,7 @@ object SmsQueueRepository {
 
             for (item in pendingList) {
                 val prefs = AutomationPreferences(context)
-                val effectiveUrl = item.targetUrl.ifBlank { prefs.targetUrl }
+                val effectiveUrl = sanitizeUrl(item.targetUrl.ifBlank { prefs.targetUrl }, AutomationPreferences.DEFAULT_TARGET_URL)
                 val effectiveHeaders = mutableMapOf<String, String>()
                 if (!item.headersJson.isNullOrBlank()) {
                     try {
@@ -353,15 +357,18 @@ object SmsQueueRepository {
                 if (effectiveHeaders.isEmpty()) {
                     effectiveHeaders.putAll(prefs.getActiveHeadersMap())
                 }
+                sanitizeHeaders(effectiveHeaders)
+
+                val cleanPayload = sanitizePayloadForAppwrite(item.payloadJson, item.userPhone ?: prefs.loggedInUserPhone, item.userId ?: prefs.loggedInUserId)
                 val headerName = item.headerName ?: (if (prefs.isCustomHeaderEnabled) prefs.customHeaderName else null)
                 val headerValue = item.headerValue ?: (if (prefs.isCustomHeaderEnabled) prefs.customHeaderValue else null)
 
                 // Exécution synchrone dans la coroutine IO
                 val result = NetworkDispatcher.transmitSynchronous(
                     targetUrl = effectiveUrl,
-                    payloadJson = item.payloadJson,
+                    payloadJson = cleanPayload,
                     source = item.source,
-                    contentLength = item.contentLength,
+                    contentLength = cleanPayload.length,
                     headers = effectiveHeaders,
                     headerName = headerName,
                     headerValue = headerValue
@@ -375,7 +382,7 @@ object SmsQueueRepository {
                         message = "Retry Réussi (#${item.id}) - SMS ${item.source}",
                         type = LogType.HTTP_SUCCESS,
                         details = "Transmis avec succès après réessai.",
-                        payloadJson = item.payloadJson,
+                        payloadJson = cleanPayload,
                         httpCode = result.second,
                         source = item.source
                     )
@@ -385,7 +392,8 @@ object SmsQueueRepository {
                         attemptCount = item.attemptCount + 1,
                         lastAttemptTimestamp = System.currentTimeMillis(),
                         lastError = "Échec (Code ${result.second}): ${result.third}",
-                        status = "FAILED"
+                        status = "FAILED",
+                        payloadJson = cleanPayload
                     )
                     dao?.updateItem(updated)
                 }
@@ -396,6 +404,89 @@ object SmsQueueRepository {
             postToMainThread {
                 onFinished?.invoke(pendingList.size, successCount)
             }
+        }
+    }
+
+    /**
+     * Nettoie et normalise la charge utile JSON pour se conformer rigoureusement au schéma Appwrite Cloud :
+     * 1. Encapsule sous { "documentId": "unique()", "data": { ... } } si non présent.
+     * 2. Convertit "parsedAmount" en entier Long (sans virgule/décimale).
+     * 3. Assure la présence des attributs valides (referenceId, createdAtUnix, clientPhone, clientUserId).
+     */
+    fun sanitizePayloadForAppwrite(rawJson: String, defaultPhone: String = "", defaultUserId: String = ""): String {
+        return try {
+            val fixedFloats = rawJson.replace(Regex("\"parsedAmount\"\\s*:\\s*([0-9]+)\\.[0-9]+"), "\"parsedAmount\": $1")
+            val root = org.json.JSONObject(fixedFloats)
+
+            val finalObj = org.json.JSONObject()
+            finalObj.put("documentId", "unique()")
+
+            val dataObj = if (root.has("data") && !root.isNull("data")) {
+                root.getJSONObject("data")
+            } else {
+                val clone = org.json.JSONObject(fixedFloats)
+                clone.remove("documentId")
+                clone
+            }
+
+            if (dataObj.has("parsedAmount")) {
+                val doubleVal = dataObj.optDouble("parsedAmount", 0.0)
+                dataObj.put("parsedAmount", doubleVal.toLong())
+            }
+            if (!dataObj.has("referenceId") || dataObj.isNull("referenceId") || dataObj.optString("referenceId").isBlank()) {
+                dataObj.put("referenceId", "REF-${System.currentTimeMillis() % 100000}")
+            }
+            if (!dataObj.has("createdAtUnix") || dataObj.isNull("createdAtUnix")) {
+                dataObj.put("createdAtUnix", System.currentTimeMillis())
+            }
+            if ((!dataObj.has("clientPhone") || dataObj.optString("clientPhone").isBlank()) && defaultPhone.isNotBlank()) {
+                dataObj.put("clientPhone", defaultPhone)
+            }
+            if ((!dataObj.has("clientUserId") || dataObj.optString("clientUserId").isBlank()) && defaultUserId.isNotBlank()) {
+                dataObj.put("clientUserId", defaultUserId)
+            }
+
+            finalObj.put("data", dataObj)
+            finalObj.toString()
+        } catch (_: Exception) {
+            val safeSender = "SMS_RECEIVER"
+            org.json.JSONObject().apply {
+                put("documentId", "unique()")
+                put("data", org.json.JSONObject().apply {
+                    put("sender", safeSender)
+                    put("rawMessage", rawJson)
+                    put("referenceId", "REF-${System.currentTimeMillis() % 100000}")
+                    put("createdAtUnix", System.currentTimeMillis())
+                    if (defaultPhone.isNotBlank()) put("clientPhone", defaultPhone)
+                    if (defaultUserId.isNotBlank()) put("clientUserId", defaultUserId)
+                })
+            }.toString()
+        }
+    }
+
+    /**
+     * Valide l'URL pour corriger d'anciens endpoints obsolètes.
+     */
+    fun sanitizeUrl(url: String, defaultUrl: String): String {
+        val trimmed = url.trim()
+        if (trimmed.isBlank() || trimmed.contains("6a21910a00047c04e5af") || trimmed.contains("makafilma")) {
+            return defaultUrl
+        }
+        return trimmed
+    }
+
+    /**
+     * S'assure que les en-têtes indispensables à Appwrite Cloud sont présents et à jour.
+     */
+    fun sanitizeHeaders(headers: MutableMap<String, String>) {
+        if (!headers.containsKey("X-Appwrite-Project") || headers["X-Appwrite-Project"].isNullOrBlank() || headers["X-Appwrite-Project"] == "6a21910a00047c04e5af") {
+            headers["X-Appwrite-Project"] = AutomationPreferences.DEFAULT_PROJECT_ID
+        }
+        if (!headers.containsKey("X-Appwrite-Key") || headers["X-Appwrite-Key"].isNullOrBlank()) {
+            headers["X-Appwrite-Key"] = AutomationPreferences.DEFAULT_API_KEY
+        }
+        if (!headers.containsKey("Content-Type") || headers["Content-Type"].isNullOrBlank()) {
+            headers["Content-Type"] = "application/json"
         }
     }
 

@@ -162,4 +162,18 @@ class ExampleUnitTest {
         assertEquals(1, queueItem.attemptCount)
         assertEquals("HTTP 500: Internal Server Error", queueItem.lastError)
     }
+
+    @Test
+    fun testQueuePayloadSanitization_convertsFloatParsedAmountToInteger() {
+        // Appwrite rejects float/double parsedAmount with HTTP 400
+        val legacyFloatPayload = "{\"documentId\":\"unique()\",\"data\":{\"sender\":\"+33699887766\",\"rawMessage\":\"Achat test #0\",\"parsedAmount\":10.0,\"operator\":\"MVOLA\",\"createdAtUnix\":1700000000}}"
+        val sanitized = com.example.data.SmsQueueRepository.sanitizePayloadForAppwrite(legacyFloatPayload)
+        val json = JSONObject(sanitized)
+        val data = json.getJSONObject("data")
+        
+        // Must be a valid integer / Long without decimal dot in json
+        assertEquals(10L, data.getLong("parsedAmount"))
+        assertFalse("Ne doit plus contenir de format décimal .0 pour parsedAmount", sanitized.contains("\"parsedAmount\": 10.0") || sanitized.contains("\"parsedAmount\":10.0"))
+        assertTrue("Doit contenir une référence valide", data.has("referenceId"))
+    }
 }

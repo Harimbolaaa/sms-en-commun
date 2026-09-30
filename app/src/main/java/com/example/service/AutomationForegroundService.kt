@@ -58,6 +58,11 @@ class AutomationForegroundService : Service() {
         super.onCreate()
         Log.d(TAG, "onCreate: Initialisation du Foreground Service")
         createNotificationChannelIfNeeded()
+        try {
+            com.example.util.SentSmsTracker.startTracking(this)
+        } catch (e: Exception) {
+            Log.w(TAG, "Impossible de démarrer SentSmsTracker", e)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

@@ -49,6 +49,9 @@ interface AutomationLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLog(log: AutomationLogEntity): Long
 
+    @Query("SELECT COUNT(*) FROM automation_logs WHERE details LIKE '%' || :query || '%' OR payloadJson LIKE '%' || :query || '%' OR message LIKE '%' || :query || '%'")
+    suspend fun countLogsWithQuerySync(query: String): Int
+
     @Query("DELETE FROM automation_logs WHERE id = :id")
     suspend fun deleteLogById(id: Long)
 
